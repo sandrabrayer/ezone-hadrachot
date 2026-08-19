@@ -1,0 +1,836 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>מעקב הדרכות | E-ZONE איזון</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@500;700;900&display=swap');
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#0B1220;
+  --bg-surface:#131C30;
+  --bg-elevated:#1A2540;
+  --ink:#F4F4F2;
+  --ink-soft:#C8C9D2;
+  --muted:#8A8FA3;
+  --line:rgba(255,255,255,0.08);
+  --line-strong:rgba(255,255,255,0.16);
+  --accent-1:#FAC775;
+  --accent-2:#EF9F27;
+  --accent-soft:rgba(239,159,39,0.12);
+  --accent-deep:#412402;
+  --success:#5DCAA5;
+  --success-soft:rgba(93,202,165,0.12);
+  --warning:#EF9F27;
+  --danger:#E24B4A;
+  --danger-soft:rgba(226,75,74,0.12);
+  --grad:linear-gradient(90deg,var(--accent-1),var(--accent-2));
+}
+body{
+  font-family:'Heebo',sans-serif;
+  direction:rtl;
+  background:var(--bg);
+  color:var(--ink);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  padding-bottom:60px;
+}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+
+/* Topbar */
+.topbar{
+  background:#070C18;
+  padding:16px 0;
+  position:sticky;top:0;z-index:50;
+  border-bottom:1px solid var(--line);
+}
+.topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.brand-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:18px;white-space:nowrap}
+.nav{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.nav button{
+  background:transparent;border:1px solid var(--line-strong);color:var(--ink-soft);
+  padding:8px 16px;border-radius:999px;font-size:13px;font-weight:600;
+  font-family:inherit;cursor:pointer;transition:.15s;
+}
+.nav button:hover{background:var(--bg-elevated);color:var(--ink)}
+.nav button.on{background:var(--grad);color:var(--accent-deep);border-color:transparent}
+.logout{background:transparent;border:none;color:var(--muted);padding:8px 12px;border-radius:999px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
+.logout:hover{color:var(--ink);background:var(--bg-elevated)}
+
+/* Login */
+.login{max-width:360px;margin:12vh auto 0;padding:34px 28px;background:var(--bg-surface);border:1px solid var(--line);border-radius:18px;text-align:center}
+.login h1{font-family:'Frank Ruhl Libre',serif;font-size:24px;margin-bottom:6px}
+.login p{color:var(--muted);font-size:13px;margin-bottom:22px}
+.login input{
+  width:100%;padding:13px;border-radius:12px;border:1px solid var(--line-strong);
+  background:var(--bg);color:var(--ink);font-size:22px;text-align:center;letter-spacing:8px;
+  font-family:inherit;direction:ltr;
+}
+.login input:focus{outline:none;border-color:var(--accent-2)}
+.login button{width:100%;margin-top:14px;padding:13px;border-radius:12px;border:none;background:var(--grad);color:var(--accent-deep);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+.login .err{color:var(--danger);font-size:13px;margin-top:12px;min-height:18px}
+
+/* Summary bar */
+.summary{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:24px 0 18px}
+.summary .qtitle{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:700}
+.pill{background:var(--bg-surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--ink-soft)}
+.pill b{color:var(--ink)}
+.pill.bad{border-color:var(--danger);color:var(--danger)}
+.grow{flex:1}
+.btn{
+  border:none;border-radius:12px;padding:11px 20px;font-size:14px;font-weight:700;
+  font-family:inherit;cursor:pointer;transition:.15s;
+}
+.btn.primary{background:var(--grad);color:var(--accent-deep)}
+.btn.primary:disabled{opacity:.5;cursor:default}
+.btn.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--ink-soft)}
+.btn.ghost:hover{color:var(--ink);background:var(--bg-elevated)}
+.btn.small{padding:7px 12px;font-size:12px;border-radius:9px}
+.btn.done{background:var(--success);color:#06281C}
+.btn.danger-ghost{background:transparent;border:1px solid var(--line-strong);color:var(--muted)}
+.btn.danger-ghost:hover{color:var(--danger);border-color:var(--danger)}
+
+/* Sections */
+.section{margin-bottom:26px}
+.section h2{font-size:15px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section h2 .count{color:var(--muted);font-weight:500;font-size:13px}
+.card{background:var(--bg-surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.section.alert .card{border-color:var(--danger)}
+.section.alert h2{color:var(--danger)}
+
+/* Guide rows */
+.row{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  padding:12px 16px;border-bottom:1px solid var(--line);
+}
+.row:last-child{border-bottom:none}
+.row.overdue{background:var(--danger-soft)}
+.gname{font-weight:600;font-size:14px;min-width:140px}
+.gsub{color:var(--muted);font-size:12px}
+.badge{font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
+.badge.new{background:var(--accent-soft);color:var(--accent-1)}
+.badge.overdue{background:var(--danger-soft);color:var(--danger)}
+.badge.planned{background:var(--bg-elevated);color:var(--ink-soft)}
+.badge.done{background:var(--success-soft);color:var(--success)}
+.badge.none{background:var(--bg-elevated);color:var(--muted)}
+.badge.inactive{background:var(--bg-elevated);color:var(--muted)}
+.row select,.row input[type=date]{
+  background:var(--bg);border:1px solid var(--line-strong);color:var(--ink);
+  border-radius:9px;padding:6px 8px;font-size:12px;font-family:inherit;
+}
+.row select:focus,.row input:focus{outline:none;border-color:var(--accent-2)}
+.spacer{flex:1}
+.rowactions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* Banner */
+.banner{border-radius:14px;padding:14px 18px;margin:18px 0;font-size:14px;border:1px solid}
+.banner.error{background:var(--danger-soft);border-color:var(--danger);color:var(--ink)}
+.banner.info{background:var(--accent-soft);border-color:var(--accent-2);color:var(--ink)}
+
+/* Supervisors */
+.suptable{width:100%}
+.suprow{display:flex;align-items:center;gap:12px;flex-wrap:wrap;padding:14px 16px;border-bottom:1px solid var(--line)}
+.suprow:last-child{border-bottom:none}
+.suprow.off{opacity:.55}
+.supname{font-weight:600;min-width:130px}
+.suphouses{color:var(--muted);font-size:12px;flex:1;min-width:160px}
+
+/* Forms and modal */
+.overlay{position:fixed;inset:0;background:rgba(4,8,16,.72);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:8vh 16px}
+.overlay.open{display:flex}
+.modal{background:var(--bg-surface);border:1px solid var(--line-strong);border-radius:16px;padding:24px;width:100%;max-width:460px;max-height:80vh;overflow:auto}
+.modal h3{font-size:17px;margin-bottom:16px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
+.field input[type=text],.field input[type=number],.field input[type=date],.field select{
+  width:100%;background:var(--bg);border:1px solid var(--line-strong);color:var(--ink);
+  border-radius:10px;padding:10px;font-size:14px;font-family:inherit;
+}
+.field input:focus,.field select:focus{outline:none;border-color:var(--accent-2)}
+.houseboxes{display:flex;flex-wrap:wrap;gap:8px}
+.houseboxes label{
+  display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-soft);
+  border:1px solid var(--line-strong);border-radius:999px;padding:6px 12px;cursor:pointer;
+}
+.houseboxes label.on{background:var(--accent-soft);border-color:var(--accent-2);color:var(--accent-1)}
+.houseboxes input{display:none}
+.modal .actions{display:flex;gap:10px;justify-content:flex-start;margin-top:20px}
+.preview-list{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin:10px 0}
+.preview-list .pitem{display:flex;justify-content:space-between;gap:10px;padding:8px 12px;border-bottom:1px solid var(--line);font-size:13px}
+.preview-list .pitem:last-child{border-bottom:none}
+.preview-list .pmeta{color:var(--muted);font-size:12px}
+.toast{
+  position:fixed;bottom:22px;right:50%;transform:translateX(50%);
+  background:var(--bg-elevated);border:1px solid var(--line-strong);color:var(--ink);
+  border-radius:12px;padding:12px 22px;font-size:14px;z-index:200;display:none;
+}
+.toast.show{display:block}
+.loading{color:var(--muted);text-align:center;padding:50px 0;font-size:14px}
+@media (max-width:640px){
+  .gname{min-width:100%}
+  .rowactions{width:100%;justify-content:flex-start}
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Login ===== -->
+<div id="loginView" class="login" style="display:none">
+  <h1>מעקב הדרכות</h1>
+  <p>הקלידי קוד גישה כדי להמשיך</p>
+  <input id="pinInput" type="password" inputmode="numeric" autocomplete="off" maxlength="12" placeholder="••••"/>
+  <button id="loginBtn">כניסה</button>
+  <div class="err" id="loginErr"></div>
+</div>
+
+<!-- ===== App ===== -->
+<div id="appView" style="display:none">
+  <div class="topbar">
+    <div class="wrap">
+      <span class="brand-name">E-ZONE · מעקב הדרכות</span>
+      <div class="nav">
+        <button data-view="board" class="on">מדריכים</button>
+        <button data-view="supervisors">מנחים</button>
+        <button class="logout" id="logoutBtn">יציאה</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div id="errorBanner" class="banner error" style="display:none"></div>
+
+    <!-- ===== Board view ===== -->
+    <div id="boardView">
+      <div class="summary">
+        <span class="qtitle" id="quarterTitle"></span>
+        <span class="pill" id="donePill"></span>
+        <span class="pill bad" id="overduePill" style="display:none"></span>
+        <span class="grow"></span>
+        <button class="btn primary" id="scheduleBtn">שבץ רבעון</button>
+      </div>
+      <div id="boardContent" class="loading">טוען נתונים…</div>
+    </div>
+
+    <!-- ===== Supervisors view ===== -->
+    <div id="supervisorsView" style="display:none">
+      <div class="summary">
+        <span class="qtitle">מנחים</span>
+        <span class="grow"></span>
+        <button class="btn primary" id="addSupBtn">הוספת מנחה</button>
+      </div>
+      <div class="card suptable" id="supList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Complete modal ===== -->
+<div class="overlay" id="completeOverlay">
+  <div class="modal">
+    <h3>סימון הדרכה כבוצעה</h3>
+    <div class="gsub" id="completeWho" style="margin-bottom:14px"></div>
+    <div class="field">
+      <label>תאריך ביצוע</label>
+      <input type="date" id="completeDate"/>
+    </div>
+    <div class="actions">
+      <button class="btn done" id="completeConfirm">בוצע</button>
+      <button class="btn ghost" data-close>ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Schedule preview modal ===== -->
+<div class="overlay" id="scheduleOverlay">
+  <div class="modal">
+    <h3>שיבוץ רבעון</h3>
+    <div class="gsub" id="scheduleSummary"></div>
+    <div class="preview-list" id="schedulePreview"></div>
+    <div class="gsub" id="scheduleUnassigned" style="color:var(--danger)"></div>
+    <div class="actions">
+      <button class="btn primary" id="scheduleConfirm">אישור שיבוץ</button>
+      <button class="btn ghost" data-close>ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Supervisor modal ===== -->
+<div class="overlay" id="supOverlay">
+  <div class="modal">
+    <h3 id="supModalTitle">הוספת מנחה</h3>
+    <div class="field">
+      <label>שם</label>
+      <input type="text" id="supName" maxlength="80"/>
+    </div>
+    <div class="field">
+      <label>בתים באחריות</label>
+      <div class="houseboxes" id="supHouses"></div>
+    </div>
+    <div class="field">
+      <label>מקסימום הדרכות ברבעון</label>
+      <input type="number" id="supMax" min="1" max="500" value="10"/>
+    </div>
+    <div class="actions">
+      <button class="btn primary" id="supSave">שמירה</button>
+      <button class="btn ghost" data-close>ביטול</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="/lib/scheduler.js"></script>
+<script>
+'use strict';
+/* All compliance, overdue and scheduling logic runs HERE in the browser via
+   lib/scheduler.js — the backend only stores and returns raw rows. */
+
+const L = window.HadrachotLogic;
+
+const HOUSES = [
+  { id: 'ramot',       name: 'רמות השבים' },
+  { id: 'asher',       name: 'רעננה אשר' },
+  { id: 'ofroni',      name: 'קיסריה עפרוני' },
+  { id: 'rehab',       name: 'קיסריה ריהאב' },
+  { id: 'pardes',      name: 'רעננה הפרדס' },
+  { id: 'sde_eliezer', name: 'שדה אליעזר' },
+  { id: 'hq',          name: 'מטה' },
+];
+const HOUSE_NAME = {};
+HOUSES.forEach(h => HOUSE_NAME[h.id] = h.name);
+
+const STATUS_LABEL = { planned: 'מתוכנן', done: 'בוצע', cancelled: 'בוטל' };
+
+// ---- state ----
+let token = localStorage.getItem('hadrachot_token') || '';
+let guides = null;      // live from the staffing feed, null until loaded
+let hadrachot = [];
+let supervisors = [];
+let currentView = 'board';
+let editingSupId = null;
+let completingCtx = null; // { hadrachaId } or { guide } for direct completion
+
+function todayStr() {
+  const d = new Date();
+  const p = n => (n < 10 ? '0' : '') + n;
+  return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+}
+
+// ---- api ----
+async function api(path, opts) {
+  const init = Object.assign({ headers: {} }, opts || {});
+  init.headers['Authorization'] = 'Bearer ' + token;
+  if (init.body) init.headers['Content-Type'] = 'application/json';
+  const resp = await fetch(path, init);
+  if (resp.status === 401) { logout(); throw new Error('unauthorized'); }
+  const body = await resp.json().catch(() => ({}));
+  if (!resp.ok) throw new Error(body.error || 'שגיאה בשרת');
+  return body;
+}
+
+function action(payload) {
+  return api('/api/action', { method: 'POST', body: JSON.stringify(payload) });
+}
+
+// ---- auth ----
+function logout() {
+  token = '';
+  localStorage.removeItem('hadrachot_token');
+  document.getElementById('appView').style.display = 'none';
+  document.getElementById('loginView').style.display = 'block';
+  document.getElementById('pinInput').value = '';
+  document.getElementById('pinInput').focus();
+}
+
+async function login() {
+  const pin = document.getElementById('pinInput').value;
+  const errEl = document.getElementById('loginErr');
+  errEl.textContent = '';
+  try {
+    const resp = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pin }),
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) { errEl.textContent = body.error || 'קוד שגוי'; return; }
+    token = body.token;
+    localStorage.setItem('hadrachot_token', token);
+    enterApp();
+  } catch (e) {
+    errEl.textContent = 'שגיאת תקשורת. נסי שוב.';
+  }
+}
+
+function enterApp() {
+  document.getElementById('loginView').style.display = 'none';
+  document.getElementById('appView').style.display = 'block';
+  refresh();
+}
+
+// ---- data loading ----
+async function refresh() {
+  const banner = document.getElementById('errorBanner');
+  banner.style.display = 'none';
+  document.getElementById('boardContent').innerHTML = '<div class="loading">טוען נתונים…</div>';
+  try {
+    // Guides come from the staffing app — fail-closed: on any error the
+    // board is NOT rendered, so an empty roster can never look compliant.
+    const [guidesResp, dataResp] = await Promise.all([
+      api('/api/guides'),
+      api('/api/data'),
+    ]);
+    guides = guidesResp.guides || [];
+    hadrachot = dataResp.hadrachot || [];
+    supervisors = dataResp.supervisors || [];
+    render();
+  } catch (e) {
+    if (e.message === 'unauthorized') return;
+    guides = null;
+    banner.textContent = 'לא ניתן לטעון נתונים כרגע: ' + e.message + '. רשימת המדריכים מגיעה ישירות מהמערכת הראשית — בלעדיה אין תצוגה.';
+    banner.style.display = 'block';
+    document.getElementById('boardContent').innerHTML = '';
+    renderSupervisors();
+  }
+}
+
+// Refresh only the sheet-backed data after a write; guides stay as loaded.
+async function refreshData() {
+  const dataResp = await api('/api/data');
+  hadrachot = dataResp.hadrachot || [];
+  supervisors = dataResp.supervisors || [];
+  render();
+}
+
+// ---- rendering ----
+function render() {
+  renderBoard();
+  renderSupervisors();
+}
+
+function esc(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function heDate(d) {
+  if (!L.isValidDate(d)) return '';
+  return d.slice(8, 10) + '.' + d.slice(5, 7) + '.' + d.slice(0, 4);
+}
+
+function quarterTitle(q) {
+  if (!L.isValidQuarter(q)) return '';
+  return 'רבעון ' + q.slice(6) + ' · ' + q.slice(0, 4);
+}
+
+// One board entry per guide name; a guide placed at two houses shows under
+// the first house seen.
+function boardEntries() {
+  const today = todayStr();
+  const seen = {};
+  const entries = [];
+  (guides || []).forEach(g => {
+    const name = L.normalizeGuideName(g.name);
+    if (!name || seen[name]) return;
+    seen[name] = true;
+    const st = L.guideStatus(g, hadrachot, today);
+    entries.push({ guide: g, name, st });
+  });
+  return entries;
+}
+
+function supervisorName(id) {
+  const s = supervisors.find(x => x.id === id);
+  return s ? s.name : '';
+}
+
+function renderBoard() {
+  const today = todayStr();
+  const quarter = L.quarterOf(today);
+  document.getElementById('quarterTitle').textContent = quarterTitle(quarter);
+
+  if (guides === null) return; // load failed — banner already shown
+
+  const entries = boardEntries();
+  const activeEntries = entries.filter(e => e.guide.active !== false);
+  const doneCount = activeEntries.filter(e => e.st.status === 'done').length;
+  const overdueEntries = activeEntries.filter(e => e.st.overdue);
+
+  document.getElementById('donePill').innerHTML =
+    'בוצעו <b>' + doneCount + '</b> מתוך <b>' + activeEntries.length + '</b> ברבעון';
+  const op = document.getElementById('overduePill');
+  if (overdueEntries.length) {
+    op.style.display = '';
+    op.innerHTML = 'באיחור: <b>' + overdueEntries.length + '</b>';
+  } else op.style.display = 'none';
+
+  let html = '';
+
+  if (overdueEntries.length) {
+    html += '<div class="section alert"><h2>דורש טיפול מיידי <span class="count">' +
+      overdueEntries.length + '</span></h2><div class="card">';
+    overdueEntries.forEach(e => { html += guideRow(e, true); });
+    html += '</div></div>';
+  }
+
+  HOUSES.forEach(h => {
+    const inHouse = entries.filter(e => e.guide.house === h.id);
+    if (!inHouse.length) return;
+    html += '<div class="section"><h2>' + esc(h.name) + ' <span class="count">' +
+      inHouse.length + '</span></h2><div class="card">';
+    inHouse.forEach(e => { html += guideRow(e, false); });
+    html += '</div></div>';
+  });
+
+  if (!html) html = '<div class="loading">אין מדריכים להצגה</div>';
+  document.getElementById('boardContent').innerHTML = html;
+  bindBoardEvents();
+}
+
+function guideRow(entry, inAlert) {
+  const g = entry.guide;
+  const st = entry.st;
+  const inactive = g.active === false;
+  const planned = st.planned;
+
+  let badges = '';
+  if (inactive) badges += '<span class="badge inactive">לא פעיל</span>';
+  if (st.newGuide) badges += '<span class="badge new">מדריך חדש · עד ' + heDate(st.deadline) + '</span>';
+  if (st.overdue && !inAlert) badges += '<span class="badge overdue">באיחור</span>';
+  badges += '<span class="badge ' + st.status + '">' +
+    (st.status === 'none' ? 'אין הדרכה' : STATUS_LABEL[st.status]) + '</span>';
+
+  let details = '';
+  let controls = '';
+
+  if (st.status === 'done') {
+    const doneRow = hadrachot.find(h =>
+      L.normalizeGuideName(h.guideName) === entry.name &&
+      h.quarter === st.quarter && h.status === 'done');
+    if (doneRow) {
+      details = '<span class="gsub">בוצע ב־' + heDate(doneRow.completedDate) +
+        (doneRow.supervisorId ? ' · ' + esc(supervisorName(doneRow.supervisorId)) : '') + '</span>';
+      controls = '<button class="btn small danger-ghost" data-act="reopen" data-id="' +
+        esc(doneRow.id) + '">בטל סימון</button>';
+    }
+  } else if (planned) {
+    const supOptions = supervisorOptions(planned.supervisorId, g.house);
+    details =
+      '<select data-act="supervisor" data-id="' + esc(planned.id) + '">' + supOptions + '</select>' +
+      '<input type="date" value="' + esc(planned.scheduledDate || '') +
+      '" data-act="reschedule" data-id="' + esc(planned.id) + '"/>';
+    controls =
+      '<button class="btn small done" data-act="complete" data-id="' + esc(planned.id) +
+      '" data-name="' + esc(entry.name) + '">בוצע</button>' +
+      '<button class="btn small danger-ghost" data-act="cancel" data-id="' + esc(planned.id) + '">ביטול</button>';
+  } else if (!inactive) {
+    // No hadracha this quarter — manual single assignment.
+    details = '<select data-act="assign" data-name="' + esc(entry.name) +
+      '" data-house="' + esc(g.house) + '"><option value="">שיבוץ ידני…</option>' +
+      supervisorOptions('', g.house, true) + '</select>';
+    controls = '<button class="btn small done" data-act="complete-direct" data-name="' +
+      esc(entry.name) + '" data-house="' + esc(g.house) + '">בוצע</button>';
+  }
+
+  return '<div class="row' + (st.overdue ? ' overdue' : '') + '">' +
+    '<span class="gname">' + esc(entry.name) +
+    ' <span class="gsub">' + esc(HOUSE_NAME[g.house] || g.house) + '</span></span>' +
+    badges +
+    details +
+    '<span class="spacer"></span>' +
+    '<span class="rowactions">' + controls + '</span>' +
+    '</div>';
+}
+
+function supervisorOptions(selectedId, house, skipEmpty) {
+  const active = supervisors.filter(s => s.active !== false);
+  const same = active.filter(s => L.supervisorCovers(s, house));
+  const rest = active.filter(s => !L.supervisorCovers(s, house));
+  let html = skipEmpty ? '' : '<option value="">ללא מנחה</option>';
+  same.concat(rest).forEach(s => {
+    html += '<option value="' + esc(s.id) + '"' +
+      (s.id === selectedId ? ' selected' : '') + '>' + esc(s.name) + '</option>';
+  });
+  return html;
+}
+
+function bindBoardEvents() {
+  const root = document.getElementById('boardContent');
+  root.querySelectorAll('[data-act=complete]').forEach(el => {
+    el.onclick = () => openComplete({ hadrachaId: el.dataset.id, name: el.dataset.name });
+  });
+  root.querySelectorAll('[data-act=complete-direct]').forEach(el => {
+    el.onclick = () => openComplete({ direct: { name: el.dataset.name, house: el.dataset.house } });
+  });
+  root.querySelectorAll('[data-act=reopen]').forEach(el => {
+    el.onclick = () => doAction({ action: 'reopenHadracha', id: el.dataset.id }, 'הסימון בוטל');
+  });
+  root.querySelectorAll('[data-act=cancel]').forEach(el => {
+    el.onclick = () => doAction({ action: 'cancelHadracha', id: el.dataset.id }, 'ההדרכה בוטלה');
+  });
+  root.querySelectorAll('[data-act=supervisor]').forEach(el => {
+    el.onchange = () => doAction({
+      action: 'updateHadracha', id: el.dataset.id,
+      hadracha: { supervisorId: el.value },
+    }, 'המנחה עודכן');
+  });
+  root.querySelectorAll('[data-act=reschedule]').forEach(el => {
+    el.onchange = () => doAction({
+      action: 'updateHadracha', id: el.dataset.id,
+      hadracha: { scheduledDate: el.value },
+    }, 'התאריך עודכן');
+  });
+  root.querySelectorAll('[data-act=assign]').forEach(el => {
+    el.onchange = () => {
+      if (!el.value) return;
+      doAction({
+        action: 'addHadracha',
+        hadracha: {
+          guideName: el.dataset.name,
+          house: el.dataset.house,
+          supervisorId: el.value,
+          quarter: L.quarterOf(todayStr()),
+          scheduledDate: todayStr(),
+        },
+      }, 'ההדרכה שובצה');
+    };
+  });
+}
+
+async function doAction(payload, okMsg) {
+  try {
+    await action(payload);
+    toast(okMsg);
+    await refreshData();
+  } catch (e) {
+    toast('שגיאה: ' + e.message);
+  }
+}
+
+// ---- completion flow ----
+function openComplete(ctx) {
+  completingCtx = ctx;
+  document.getElementById('completeWho').textContent =
+    ctx.name || (ctx.direct && ctx.direct.name) || '';
+  document.getElementById('completeDate').value = todayStr();
+  document.getElementById('completeOverlay').classList.add('open');
+}
+
+async function confirmComplete() {
+  const date = document.getElementById('completeDate').value;
+  if (!L.isValidDate(date)) { toast('יש לבחור תאריך'); return; }
+  const ctx = completingCtx;
+  closeOverlays();
+  try {
+    if (ctx.hadrachaId) {
+      await action({ action: 'completeHadracha', id: ctx.hadrachaId, completedDate: date });
+    } else if (ctx.direct) {
+      // Guide had nothing this quarter — create then complete in two steps.
+      const created = await action({
+        action: 'addHadracha',
+        hadracha: {
+          guideName: ctx.direct.name,
+          house: ctx.direct.house,
+          supervisorId: '',
+          quarter: L.quarterOf(date),
+          scheduledDate: date,
+        },
+      });
+      await action({ action: 'completeHadracha', id: created.hadracha.id, completedDate: date });
+    }
+    toast('ההדרכה סומנה כבוצעה');
+    await refreshData();
+  } catch (e) {
+    toast('שגיאה: ' + e.message);
+  }
+}
+
+// ---- auto-scheduler — שבץ רבעון ----
+let pendingSchedule = null;
+
+function openSchedule() {
+  if (guides === null) { toast('אין נתוני מדריכים — לא ניתן לשבץ'); return; }
+  const today = todayStr();
+  const result = L.scheduleQuarter({ guides, supervisors, hadrachot, today });
+  pendingSchedule = result;
+
+  const summaryEl = document.getElementById('scheduleSummary');
+  const listEl = document.getElementById('schedulePreview');
+  const unEl = document.getElementById('scheduleUnassigned');
+  const confirmBtn = document.getElementById('scheduleConfirm');
+
+  if (!result.assignments.length && !result.unassigned.length) {
+    summaryEl.textContent = 'כל המדריכים הפעילים כבר משובצים לרבעון הנוכחי';
+    listEl.innerHTML = '';
+    unEl.textContent = '';
+    confirmBtn.disabled = true;
+  } else {
+    summaryEl.textContent = 'שיבוצים חדשים: ' + result.assignments.length;
+    listEl.innerHTML = result.assignments.map(a =>
+      '<div class="pitem"><span>' + esc(a.guideName) +
+      (a.isNew ? ' <span class="badge new">חדש · עד ' + heDate(a.deadline) + '</span>' : '') +
+      '</span><span class="pmeta">' + esc(supervisorName(a.supervisorId)) +
+      ' · ' + heDate(a.scheduledDate) + '</span></div>'
+    ).join('');
+    unEl.textContent = result.unassigned.length
+      ? 'ללא שיבוץ — כל המנחים בתפוסה מלאה: ' +
+        result.unassigned.map(u => u.guideName).join(', ')
+      : '';
+    confirmBtn.disabled = !result.assignments.length;
+  }
+  document.getElementById('scheduleOverlay').classList.add('open');
+}
+
+async function confirmSchedule() {
+  const items = (pendingSchedule && pendingSchedule.assignments || []).map(a => ({
+    guideName: a.guideName,
+    house: a.house,
+    supervisorId: a.supervisorId,
+    quarter: a.quarter,
+    scheduledDate: a.scheduledDate,
+  }));
+  closeOverlays();
+  if (!items.length) return;
+  try {
+    const resp = await action({ action: 'addHadrachotBatch', items });
+    toast('שובצו ' + resp.count + ' הדרכות');
+    await refreshData();
+  } catch (e) {
+    toast('שגיאה: ' + e.message);
+  }
+}
+
+// ---- supervisors screen ----
+function renderSupervisors() {
+  const el = document.getElementById('supList');
+  if (!supervisors.length) {
+    el.innerHTML = '<div class="loading">אין מנחים עדיין — הוסיפי מנחה ראשון</div>';
+    return;
+  }
+  const today = todayStr();
+  const quarter = L.quarterOf(today);
+  el.innerHTML = supervisors.map(s => {
+    const load = hadrachot.filter(h =>
+      h.supervisorId === s.id && h.quarter === quarter && h.status !== 'cancelled').length;
+    return '<div class="suprow' + (s.active === false ? ' off' : '') + '">' +
+      '<span class="supname">' + esc(s.name) + '</span>' +
+      '<span class="suphouses">' +
+        (s.houses || []).map(h => esc(HOUSE_NAME[h] || h)).join(' · ') + '</span>' +
+      '<span class="pill">ברבעון: <b>' + load + '</b> מתוך <b>' + esc(s.maxPerQuarter) + '</b></span>' +
+      '<span class="rowactions">' +
+      '<button class="btn small ghost" data-sup-edit="' + esc(s.id) + '">עריכה</button>' +
+      '<button class="btn small danger-ghost" data-sup-toggle="' + esc(s.id) +
+      '" data-active="' + (s.active === false ? 'true' : 'false') + '">' +
+      (s.active === false ? 'הפעלה' : 'השבתה') + '</button>' +
+      '</span></div>';
+  }).join('');
+
+  el.querySelectorAll('[data-sup-edit]').forEach(b => {
+    b.onclick = () => openSupModal(b.dataset.supEdit);
+  });
+  el.querySelectorAll('[data-sup-toggle]').forEach(b => {
+    b.onclick = () => doAction({
+      action: 'setSupervisorActive',
+      id: b.dataset.supToggle,
+      active: b.dataset.active === 'true',
+    }, 'עודכן');
+  });
+}
+
+function openSupModal(id) {
+  editingSupId = id || null;
+  const s = id ? supervisors.find(x => x.id === id) : null;
+  document.getElementById('supModalTitle').textContent = s ? 'עריכת מנחה' : 'הוספת מנחה';
+  document.getElementById('supName').value = s ? s.name : '';
+  document.getElementById('supMax').value = s ? s.maxPerQuarter : 10;
+  const boxes = document.getElementById('supHouses');
+  boxes.innerHTML = HOUSES.map(h => {
+    const on = s && (s.houses || []).indexOf(h.id) >= 0;
+    return '<label class="' + (on ? 'on' : '') + '"><input type="checkbox" value="' +
+      h.id + '"' + (on ? ' checked' : '') + '/>' + esc(h.name) + '</label>';
+  }).join('');
+  boxes.querySelectorAll('input').forEach(cb => {
+    cb.onchange = () => cb.parentElement.classList.toggle('on', cb.checked);
+  });
+  document.getElementById('supOverlay').classList.add('open');
+}
+
+async function saveSupervisor() {
+  const name = document.getElementById('supName').value.trim();
+  const maxPerQuarter = Number(document.getElementById('supMax').value);
+  const houses = Array.from(
+    document.querySelectorAll('#supHouses input:checked')).map(cb => cb.value);
+  if (!name) { toast('יש להזין שם'); return; }
+  if (!houses.length) { toast('יש לבחור לפחות בית אחד'); return; }
+  if (!Number.isInteger(maxPerQuarter) || maxPerQuarter < 1) { toast('מקסימום לא תקין'); return; }
+  const existing = editingSupId ? supervisors.find(x => x.id === editingSupId) : null;
+  const supervisor = {
+    name, houses, maxPerQuarter,
+    active: existing ? existing.active !== false : true,
+  };
+  closeOverlays();
+  try {
+    if (editingSupId) {
+      await action({ action: 'updateSupervisor', id: editingSupId, supervisor });
+    } else {
+      await action({ action: 'addSupervisor', supervisor });
+    }
+    toast('נשמר');
+    await refreshData();
+  } catch (e) {
+    toast('שגיאה: ' + e.message);
+  }
+}
+
+// ---- ui plumbing ----
+function closeOverlays() {
+  document.querySelectorAll('.overlay').forEach(o => o.classList.remove('open'));
+}
+
+let toastTimer = null;
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+function switchView(view) {
+  currentView = view;
+  document.getElementById('boardView').style.display = view === 'board' ? '' : 'none';
+  document.getElementById('supervisorsView').style.display = view === 'supervisors' ? '' : 'none';
+  document.querySelectorAll('.nav [data-view]').forEach(b => {
+    b.classList.toggle('on', b.dataset.view === view);
+  });
+}
+
+document.querySelectorAll('.nav [data-view]').forEach(b => {
+  b.onclick = () => switchView(b.dataset.view);
+});
+document.getElementById('loginBtn').onclick = login;
+document.getElementById('pinInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') login();
+});
+document.getElementById('logoutBtn').onclick = logout;
+document.getElementById('scheduleBtn').onclick = openSchedule;
+document.getElementById('scheduleConfirm').onclick = confirmSchedule;
+document.getElementById('completeConfirm').onclick = confirmComplete;
+document.getElementById('addSupBtn').onclick = () => openSupModal(null);
+document.getElementById('supSave').onclick = saveSupervisor;
+document.querySelectorAll('[data-close]').forEach(b => { b.onclick = closeOverlays; });
+document.querySelectorAll('.overlay').forEach(o => {
+  o.addEventListener('click', e => { if (e.target === o) closeOverlays(); });
+});
+
+// ---- boot ----
+if (token) enterApp();
+else {
+  document.getElementById('loginView').style.display = 'block';
+  document.getElementById('pinInput').focus();
+}
+</script>
+</body>
+</html>

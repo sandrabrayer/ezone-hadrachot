@@ -1,0 +1,15 @@
+node_modules/
+.env
+.env.local
+*.log
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+coverage/
+.claude/
+
+# clasp / Apps Script credentials — NEVER commit. These hold OAuth tokens.
+# (.clasp.json itself is committed — it holds only the non-secret Script ID.)
+.clasprc.json
+.clasp.local.json
