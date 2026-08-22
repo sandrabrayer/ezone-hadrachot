@@ -1,0 +1,162 @@
+name: Create Apps Script Deployment (one-off)
+
+# ONE-OFF, manual-only workflow that creates the INITIAL Web App deployment
+# headlessly, so the Apps Script editor is never needed (DEPLOY.md step 1.4
+# without the clicking). The web app configuration — execute as
+# USER_DEPLOYING, access ANYONE_ANONYMOUS — comes from
+# apps-script/appsscript.json, which `clasp deploy` reads from the pushed
+# manifest.
+#
+# This MINTS A NEW deployment (a new /exec URL). Run it once, save the
+# printed deployment ID as the DEPLOYMENT_ID secret, and from then on let
+# deploy-apps-script.yml redeploy that SAME deployment on every merge so the
+# /exec URL stays stable. Re-running this workflow creates ANOTHER
+# deployment with ANOTHER /exec URL — only do that deliberately.
+#
+# Requires one GitHub secret — see DEPLOY.md:
+#   - CLASPRC_JSON : contents of ~/.clasprc.json from a local `clasp login`
+
+on:
+  # Manual only, from the Actions tab (Run workflow). Never on push — creating
+  # deployments must be a deliberate human act.
+  workflow_dispatch:
+
+# Same group as deploy-apps-script.yml: never let a deployment-create race a
+# regular redeploy on the same Apps Script project.
+concurrency:
+  group: deploy-apps-script
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  create-deployment:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Verify required secret is present (fail loudly if not)
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          if [ -z "$CLASPRC_JSON" ]; then
+            echo "::error::Missing secret CLASPRC_JSON. Run 'clasp login' locally with @google/clasp@3.3.0 and copy ~/.clasprc.json into the CLASPRC_JSON GitHub secret. See DEPLOY.md."
+            exit 1
+          fi
+
+      - name: Verify .clasp.json carries a real Script ID
+        run: |
+          if grep -q 'REPLACE_WITH_HADRACHOT_SCRIPT_ID' .clasp.json; then
+            echo "::error::.clasp.json still holds the placeholder Script ID. Create the Apps Script project, copy its Script ID into .clasp.json, and commit. See DEPLOY.md."
+            exit 1
+          fi
+
+      - name: Verify the manifest carries the web app settings
+        # `clasp deploy` takes the web app config from the manifest — without
+        # these the new deployment would not be an anonymous web app at all.
+        run: |
+          node -e "
+            const m = JSON.parse(require('fs').readFileSync('apps-script/appsscript.json', 'utf8'));
+            const w = m.webapp || {};
+            if (w.executeAs !== 'USER_DEPLOYING' || w.access !== 'ANYONE_ANONYMOUS') {
+              console.error('::error::apps-script/appsscript.json must declare webapp.executeAs=USER_DEPLOYING and webapp.access=ANYONE_ANONYMOUS — clasp deploy takes the web app config from the manifest. Found: ' + JSON.stringify(w));
+              process.exit(1);
+            }
+            console.log('Manifest OK — webapp executeAs=USER_DEPLOYING, access=ANYONE_ANONYMOUS.');
+          "
+
+      - name: Install clasp
+        # Pinned to 3.x to match the clasp version that produced the credential
+        # secret (clasp 3.x's ~/.clasprc.json is a different, per-user-keyed
+        # format that clasp 2.x cannot read). Keep this in lockstep with
+        # deploy-apps-script.yml and the local clasp version in DEPLOY.md.
+        run: npm install -g @google/clasp@3.3.0
+
+      - name: Write clasp credentials
+        env:
+          CLASPRC_JSON: ${{ secrets.CLASPRC_JSON }}
+        run: |
+          printf '%s' "$CLASPRC_JSON" > "$HOME/.clasprc.json"
+          # Validate it is real JSON so a truncated/corrupt secret fails here,
+          # loudly, instead of mid-deploy with a confusing clasp error.
+          node -e "JSON.parse(require('fs').readFileSync(process.env.HOME + '/.clasprc.json', 'utf8'))" \
+            || { echo "::error::CLASPRC_JSON is not valid JSON. Re-run 'clasp login' locally and re-copy the whole ~/.clasprc.json into the secret. See DEPLOY.md."; exit 1; }
+
+      - name: Push code to the Apps Script project
+        # Always push so the new deployment is cut from the checked-out code
+        # and manifest (push is idempotent — unchanged files are a no-op).
+        # -f overwrites the project's files (incl. the manifest) without
+        # prompting.
+        run: clasp push -f
+
+      - name: Create the NEW versioned deployment
+        # No -i flag → clasp creates a BRAND-NEW deployment at a freshly
+        # created version, taking the web app config from the pushed manifest.
+        #
+        # IMPORTANT: clasp 3.x can print a rejection and STILL exit 0, which
+        # would make a no-op look green. So we require clasp's
+        # "Deployed …@<version>" success line, with a real AKfyc… deployment
+        # ID and a NUMERIC version (@HEAD is not a versioned deployment), and
+        # fail loudly otherwise.
+        run: |
+          set +e
+          out="$(clasp deploy -d "production" 2>&1)"
+          rc=$?
+          set -e
+          echo "$out"
+          deployed_line="$(printf '%s\n' "$out" | grep -E 'Deployed' | head -n 1)"
+          dep_id="$(printf '%s\n' "$deployed_line" | grep -oE 'AKfyc[A-Za-z0-9_-]+' | head -n 1)"
+          version="$(printf '%s\n' "$deployed_line" | grep -oE '@[0-9]+' | head -n 1 | tr -d '@')"
+          if [ "$rc" -ne 0 ] || ! printf '%s\n' "$out" | grep -q 'Deployed' || [ -z "$dep_id" ] || [ -z "$version" ]; then
+            echo "::error::clasp did NOT confirm a new versioned deployment (expected a 'Deployed AKfyc…@<version>' line with a numeric version). Nothing to save as DEPLOYMENT_ID. Existing deployments for this project:"
+            clasp list-deployments || true
+            exit 1
+          fi
+          exec_url="https://script.google.com/macros/s/${dep_id}/exec"
+          echo ""
+          echo "=================================================================="
+          echo " NEW VERSIONED DEPLOYMENT CREATED"
+          echo ""
+          echo "   Deployment ID : ${dep_id}"
+          echo "   Version       : ${version}"
+          echo "   /exec URL     : ${exec_url}"
+          echo ""
+          echo " NOW SAVE IT (one-time, so deploy-apps-script.yml can redeploy"
+          echo " this SAME deployment and keep the /exec URL stable):"
+          echo ""
+          echo "   1. GitHub -> repo Settings -> Secrets and variables -> Actions"
+          echo "      -> New repository secret -> name DEPLOYMENT_ID,"
+          echo "      value ${dep_id}"
+          echo "   2. Same page, 'Variables' tab -> New repository variable"
+          echo "      -> name APPS_SCRIPT_EXEC_URL, value ${exec_url}"
+          echo "      (used by the post-deploy anonymous-access smoke check)"
+          echo "   3. Railway -> set APPS_SCRIPT_URL to ${exec_url}"
+          echo "=================================================================="
+          echo "::notice title=New Apps Script deployment::Save DEPLOYMENT_ID=${dep_id} as a GitHub Actions secret. /exec URL: ${exec_url}"
+          {
+            echo "## New Apps Script deployment created"
+            echo ""
+            echo "| | |"
+            echo "| --- | --- |"
+            echo "| Deployment ID | \`${dep_id}\` |"
+            echo "| Version | \`${version}\` |"
+            echo "| /exec URL | \`${exec_url}\` |"
+            echo ""
+            echo "**Save the deployment ID as the \`DEPLOYMENT_ID\` repository secret** and the /exec URL as the \`APPS_SCRIPT_EXEC_URL\` repository variable (and Railway's \`APPS_SCRIPT_URL\`). See DEPLOY.md."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: List all deployments (for the record)
+        # `clasp deployments` is the clasp 3.x alias of list-deployments; the
+        # new deployment must appear here alongside the always-present @HEAD.
+        run: clasp deployments
+
+      - name: Remove credentials from the runner
+        if: always()
+        run: rm -f "$HOME/.clasprc.json"

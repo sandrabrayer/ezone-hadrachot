@@ -1,5 +1,25 @@
 # Changelog — E-ZONE Hadrachot
 
+## 1.0.1 — 2026-08-22 — headless initial deployment
+
+- New one-off workflow `create-deployment.yml` (`workflow_dispatch` only):
+  creates the INITIAL Apps Script Web App deployment headlessly, so DEPLOY.md
+  step 1.4 no longer needs the Apps Script editor. It verifies the manifest
+  declares `webapp.executeAs: USER_DEPLOYING` + `webapp.access:
+  ANYONE_ANONYMOUS` (clasp takes the web app config from the manifest),
+  writes the `CLASPRC_JSON` credentials, `clasp push`es, runs `clasp deploy
+  -d "production"`, and fails loudly unless clasp confirms a new VERSIONED
+  deployment (`Deployed AKfyc…@<n>` — `@HEAD` does not count). The new
+  deployment ID and `/exec` URL are printed prominently in the log and job
+  summary with instructions to save them as the `DEPLOYMENT_ID` secret and
+  `APPS_SCRIPT_EXEC_URL` variable. Ends with `clasp deployments` for the
+  record and always removes the credentials from the runner, same as
+  `deploy-apps-script.yml`; shares that workflow's concurrency group so a
+  create never races a redeploy.
+- DEPLOY.md step 1.4 rewritten around the headless flow (editor now the
+  manual fallback), with a warning that re-running the one-off workflow
+  mints ANOTHER deployment with ANOTHER `/exec` URL.
+
 ## 1.0.0 — 2026-08-19 — initial build
 
 A new app for tracking hadrachot for madrichim across the network's 7 houses
