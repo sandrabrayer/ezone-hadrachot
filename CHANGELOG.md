@@ -1,5 +1,90 @@
 # Changelog — E-ZONE Hadrachot
 
+## 1.1.0 — 2026-08-24 — per-role cadences, clusters, refreshers, warm theme
+
+The supervision model reworked from quarterly-per-guide to per-role
+cadences. The staffing feed's `role` field (ASCII: `guide` /
+`social_worker` / `house_manager` / `coordinator`) is authoritative and all
+roles now appear on the board, not only guides.
+
+### The new model
+
+- **Cadences**: guide — every 14 days in GROUP sessions; social_worker —
+  every 14 days individual; house_manager — every 7 days individual;
+  coordinator — every 14 days individual.
+- **30-day first-supervision rule**: everyone must complete a first
+  supervision within 30 days of `start_date` — day 30 exactly is fine, day
+  31 is overdue. Replaces the old 7-day new-guide rule everywhere,
+  including the tests. People inside their first month are flagged
+  prominently on the board and in the scheduler preview.
+- **House clusters for group sessions**: kesaria = ofroni + rehab,
+  raanana = asher + pardes + ramot. Internal house ids unchanged; display
+  labels unchanged (קיסריה עפרוני, קיסריה ריהאב, רעננה אשר, רעננה הפרדס,
+  רמות השבים). A group session belongs to a cluster, covers all its active
+  guides, and attendance is marked per guide (checkbox row on the group
+  session card, stored comma-separated, `setAttendance` action). Guides in
+  houses outside every cluster (sde_eliezer, hq) are supervised
+  individually on the same 14-day cadence.
+- **Guide refreshers — רענון**: every 3 months per guide, individual, type
+  `refresher` — a separate track that never satisfies the regular cadence
+  and is never satisfied by it. The first refresher is due 3 months after
+  `start_date`. The default instructor אולגה is seeded once into
+  Supervisors (refresher-only, guides only; Settings key `seed.olga`
+  records the seed so it never re-runs).
+- **Supervisor capability flags**: delivers group sessions yes/no, delivers
+  individual supervisions yes/no, delivers refreshers yes/no, plus the
+  roles they can supervise. Legacy rows default to group+individual true,
+  refresher false, all roles — existing supervisors keep working unchanged.
+- **Scheduler שבץ — per-role generation**: one group session per cluster
+  per 14 days assigned to a group-capable instructor (the most urgent
+  member's due date drives the cluster date, a never-supervised member
+  pulls it to today); individual sessions per person per their cadence;
+  refreshers when due within 14 days. Existing completed sessions are
+  respected when computing due dates; a track with a live planned session
+  is skipped, never duplicated. Same-house preference and ratio-based load
+  balancing against `max_per_quarter` kept. People or clusters no capable
+  supervisor can absorb are listed as unassigned, never silently dropped.
+- **Overdue view**: per-person next-due date and days-overdue, grouped by
+  house, overdue first — with an alert section at the top sorted by days
+  overdue.
+
+### Data model — migration-safe, append-only
+
+New columns APPENDED at the END of the header arrays only, never mid-array
+(readers/writers are position-mapped). `ensureTabs_` now also appends the
+missing header cells to a pre-migration sheet in place; existing rows keep
+working — blank new cells read as safe defaults.
+
+- **Hadrachot** gains `type` (group / individual / refresher; blank legacy
+  cells read as individual), `cluster` (kesaria / raanana, group rows
+  only) and `attendance` (comma-separated guide names). A group row has no
+  single guide: `guide_name` and `house` are blank. `quarter` is kept as
+  legacy bookkeeping; no cadence decision reads it.
+- **Supervisors** gains `delivers_group`, `delivers_individual`,
+  `delivers_refresher` and `roles`.
+- The one-live-row-per-guide-per-quarter rule became one OPEN planned
+  session per track: per cluster for group sessions, per person+type
+  otherwise — completed history accumulates freely, the cadence needs it.
+- `getFirstHadrachaStatus` counts done group sessions for every name on
+  their attendance list; payload shape unchanged (name /
+  firstHadrachaDone / firstCompletedDate only).
+
+### Frontend theme
+
+Restyled from the navy palette to a warm brown base with red and orange
+accents and gold highlights for primary buttons and active states —
+applied across all screens, states, badges and buttons. Dark-theme
+contrast and RTL layout unchanged.
+
+### Tests (`node --test`, 113 tests)
+
+All cadence math rewritten: per-role next-due and days-overdue, the 30-day
+boundary for every role, 3-calendar-month refresher math with day
+clamping, cluster grouping and attendance-driven coverage, group session
+generation per cluster, capability and role filtering, the אולגה seed,
+attendance marking, and append-only header migration driven against
+pre-migration sheets in a vm sandbox.
+
 ## 1.0.1 — 2026-08-22 — headless initial deployment
 
 - New one-off workflow `create-deployment.yml` (`workflow_dispatch` only):

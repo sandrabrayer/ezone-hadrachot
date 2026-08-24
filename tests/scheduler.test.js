@@ -1,174 +1,301 @@
 'use strict';
-// The auto-scheduler behind שבץ רבעון: same-house preference, load balancing
-// against each supervisor's quarterly max, new-guide immediacy, and skipping
-// guides who already have a live hadracha this quarter.
+// The auto-scheduler behind שבץ: per-role generation — one group session per
+// cluster per 14 days for guides, individual sessions per person per their
+// cadence for every other role, refreshers when due — respecting existing
+// completed sessions, capability flags, and supervisor capacity.
 
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const L = require('../lib/scheduler');
 
-const TODAY = '2026-08-19'; // inside 2026-Q3
-const Q = '2026-Q3';
+const TODAY = '2026-08-19';
 
-function sup(id, name, houses, max, active) {
-  return { id, name, houses, maxPerQuarter: max, active: active !== false };
+function sup(id, name, houses, max, opts) {
+  return Object.assign({
+    id, name, houses, maxPerQuarter: max, active: true,
+    deliversGroup: true, deliversIndividual: true, deliversRefresher: false,
+    roles: L.ROLES.slice(),
+  }, opts || {});
 }
-function g(name, house, startDate, active) {
-  return { name, house, startDate: startDate || '2025-01-01', active: active !== false };
+function p(name, role, house, startDate, active) {
+  return { name, role, house, startDate: startDate || '2025-01-01', active: active !== false };
+}
+function doneIndividual(name, house, date) {
+  return {
+    guideName: name, house, supervisorId: 's1', quarter: L.quarterOf(date),
+    scheduledDate: date, completedDate: date, status: 'done', type: 'individual',
+    cluster: '', attendance: [],
+  };
+}
+function doneGroup(cluster, date, attendance) {
+  return {
+    guideName: '', house: '', supervisorId: 's1', quarter: L.quarterOf(date),
+    scheduledDate: date, completedDate: date, status: 'done', type: 'group',
+    cluster, attendance,
+  };
+}
+function run(people, supervisors, sessions) {
+  return L.scheduleSessions({ people, supervisors, sessions: sessions || [], today: TODAY });
 }
 
-test('prefers a supervisor covering the guide house', () => {
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot')],
-    supervisors: [
-      sup('s1', 'אורית', ['asher'], 10),
-      sup('s2', 'נועם', ['ramot'], 10),
-    ],
-    hadrachot: [], today: TODAY,
-  });
+// ---- group sessions per cluster ----
+
+test('creates ONE group session per cluster covering all its active guides', () => {
+  const out = run(
+    [p('א', 'guide', 'ofroni'), p('ב', 'guide', 'rehab'),
+     p('ג', 'guide', 'asher'), p('ד', 'guide', 'pardes'), p('ה', 'guide', 'ramot')],
+    [sup('s1', 'אורית', ['ofroni', 'rehab', 'asher', 'pardes', 'ramot'], 100)]);
+  const groups = out.assignments.filter(a => a.type === 'group');
+  assert.equal(groups.length, 2);
+  const kesaria = groups.find(g => g.cluster === 'kesaria');
+  const raanana = groups.find(g => g.cluster === 'raanana');
+  assert.deepEqual(kesaria.guideNames.sort(), ['א', 'ב']);
+  assert.deepEqual(raanana.guideNames.sort(), ['ג', 'ד', 'ה']);
+  // A group row carries a cluster, never a single guide or house.
+  assert.equal(kesaria.guideName, '');
+  assert.equal(kesaria.house, '');
+  assert.equal(kesaria.supervisorId, 's1');
+});
+
+test('a cluster with a live planned group session is skipped, not duplicated', () => {
+  const planned = {
+    guideName: '', house: '', supervisorId: 's1', quarter: '2026-Q3',
+    scheduledDate: '2026-08-25', completedDate: '', status: 'planned',
+    type: 'group', cluster: 'kesaria', attendance: [],
+  };
+  const out = run([p('א', 'guide', 'ofroni')], [sup('s1', 'אורית', ['ofroni'], 100)], [planned]);
+  assert.equal(out.assignments.filter(a => a.type === 'group').length, 0);
+});
+
+test('group due date respects the last completed group session — 14 days later', () => {
+  const sessions = [doneGroup('kesaria', '2026-08-10', ['א', 'ב'])];
+  const out = run(
+    [p('א', 'guide', 'ofroni'), p('ב', 'guide', 'rehab')],
+    [sup('s1', 'אורית', ['ofroni'], 100)], sessions);
+  const g = out.assignments.find(a => a.type === 'group');
+  assert.equal(g.scheduledDate, '2026-08-24'); // 2026-08-10 + 14
+});
+
+test('an overdue cluster is scheduled TODAY, never in the past', () => {
+  const sessions = [doneGroup('kesaria', '2026-07-01', ['א'])];
+  const out = run([p('א', 'guide', 'ofroni')], [sup('s1', 'אורית', ['ofroni'], 100)], sessions);
+  const g = out.assignments.find(a => a.type === 'group');
+  assert.equal(g.scheduledDate, TODAY);
+});
+
+test('the MOST URGENT member drives the cluster date — an uncovered guide pulls it to today', () => {
+  // א was covered 5 days ago; ב has never been supervised and started long
+  // ago — the cluster session must not wait for א's 14 days.
+  const sessions = [doneGroup('kesaria', '2026-08-14', ['א'])];
+  const out = run(
+    [p('א', 'guide', 'ofroni'), p('ב', 'guide', 'rehab', '2026-01-01')],
+    [sup('s1', 'אורית', ['ofroni'], 100)], sessions);
+  const g = out.assignments.find(a => a.type === 'group');
+  assert.equal(g.scheduledDate, TODAY);
+});
+
+test('a group session needs a supervisor who DELIVERS GROUP sessions', () => {
+  const out = run(
+    [p('א', 'guide', 'ofroni')],
+    [sup('s1', 'אורית', ['ofroni'], 100, { deliversGroup: false })]);
+  assert.equal(out.assignments.filter(a => a.type === 'group').length, 0);
+  assert.deepEqual(out.unassigned.filter(u => u.type === 'group'),
+    [{ type: 'group', cluster: 'kesaria', guideName: '', role: 'guide', house: '' }]);
+});
+
+// ---- individual sessions per role cadence ----
+
+test('non-guide roles get individual sessions at their cadence date', () => {
+  const sessions = [
+    doneIndividual('עדי', 'hq', '2026-08-10'),   // social worker, due +14 = 08-24
+    doneIndividual('נעם', 'ramot', '2026-08-15'), // house manager, due +7 = 08-22
+  ];
+  const out = run(
+    [p('עדי', 'social_worker', 'hq'), p('נעם', 'house_manager', 'ramot')],
+    [sup('s1', 'אורית', ['hq', 'ramot'], 100)], sessions);
+  const byName = {};
+  out.assignments.forEach(a => { byName[a.guideName] = a; });
+  assert.equal(byName['עדי'].type, 'individual');
+  assert.equal(byName['עדי'].scheduledDate, '2026-08-24');
+  assert.equal(byName['נעם'].scheduledDate, '2026-08-22');
+});
+
+test('a person never supervised is scheduled TODAY with the 30-day deadline attached', () => {
+  const out = run(
+    [p('עדי', 'social_worker', 'hq', '2026-08-16')],
+    [sup('s1', 'אורית', ['hq'], 100)]);
   assert.equal(out.assignments.length, 1);
-  assert.equal(out.assignments[0].supervisorId, 's2');
-  assert.equal(out.assignments[0].quarter, Q);
+  assert.equal(out.assignments[0].scheduledDate, TODAY);
+  assert.equal(out.assignments[0].deadline, '2026-09-15'); // start + 30
 });
 
-test('falls back to an off-house supervisor when the same-house one is at capacity', () => {
-  const existing = [{ guideName: 'x1', house: 'ramot', supervisorId: 's2', quarter: Q, status: 'planned' }];
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot')],
-    supervisors: [
-      sup('s1', 'אורית', ['asher'], 10),
-      sup('s2', 'נועם', ['ramot'], 1), // full
-    ],
-    hadrachot: existing, today: TODAY,
-  });
-  assert.equal(out.assignments[0].supervisorId, 's1');
-});
-
-test('balances load by ratio of assigned to quarterly max', () => {
-  // s1 max 10 with 4 existing (40%), s2 max 4 with 1 existing (25%) —
-  // both cover the house; s2 is proportionally less loaded and must win.
-  const existing = [
-    { guideName: 'a', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'planned' },
-    { guideName: 'b', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'planned' },
-    { guideName: 'c', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'done', completedDate: '2026-07-10' },
-    { guideName: 'd', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'planned' },
-    { guideName: 'e', house: 'ramot', supervisorId: 's2', quarter: Q, status: 'planned' },
-  ];
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot')],
-    supervisors: [sup('s1', 'אורית', ['ramot'], 10), sup('s2', 'נועם', ['ramot'], 4)],
-    hadrachot: existing, today: TODAY,
-  });
-  assert.equal(out.assignments[0].supervisorId, 's2');
-});
-
-test('cancelled rows do not count toward supervisor load', () => {
-  const existing = [
-    { guideName: 'a', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'cancelled' },
-  ];
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot')],
-    supervisors: [sup('s1', 'אורית', ['ramot'], 1)],
-    hadrachot: existing, today: TODAY,
-  });
-  assert.equal(out.assignments[0].supervisorId, 's1'); // capacity 1 still free
-});
-
-test('when every supervisor is at capacity the guide lands in unassigned', () => {
-  const existing = [{ guideName: 'a', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'planned' }];
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot')],
-    supervisors: [sup('s1', 'אורית', ['ramot'], 1)],
-    hadrachot: existing, today: TODAY,
-  });
+test('a person with a live planned individual session is skipped', () => {
+  const planned = {
+    guideName: 'עדי', house: 'hq', supervisorId: 's1', quarter: '2026-Q3',
+    scheduledDate: '2026-08-25', completedDate: '', status: 'planned',
+    type: 'individual', cluster: '', attendance: [],
+  };
+  const out = run([p('עדי', 'social_worker', 'hq')], [sup('s1', 'אורית', ['hq'], 100)], [planned]);
   assert.equal(out.assignments.length, 0);
-  assert.deepEqual(out.unassigned, [{ guideName: 'דנה', house: 'ramot' }]);
 });
 
-test('skips guides who already have a live hadracha this quarter', () => {
+test('guides OUTSIDE every cluster are supervised individually on the 14-day cadence', () => {
+  const sessions = [doneIndividual('שי', 'sde_eliezer', '2026-08-10')];
+  const out = run([p('שי', 'guide', 'sde_eliezer')], [sup('s1', 'אורית', ['sde_eliezer'], 100)], sessions);
+  const a = out.assignments.find(x => x.guideName === 'שי' && x.type === 'individual');
+  assert.ok(a);
+  assert.equal(a.scheduledDate, '2026-08-24');
+  assert.equal(out.assignments.filter(x => x.type === 'group').length, 0);
+});
+
+test('individual sessions need a supervisor covering the ROLE', () => {
+  const out = run(
+    [p('עדי', 'social_worker', 'hq')],
+    [sup('s1', 'אורית', ['hq'], 100, { roles: ['guide'] })]);
+  assert.equal(out.assignments.length, 0);
+  assert.equal(out.unassigned[0].guideName, 'עדי');
+  assert.equal(out.unassigned[0].role, 'social_worker');
+});
+
+test('individual sessions need a supervisor who DELIVERS INDIVIDUAL supervisions', () => {
+  const out = run(
+    [p('עדי', 'coordinator', 'hq')],
+    [sup('s1', 'אורית', ['hq'], 100, { deliversIndividual: false })]);
+  assert.equal(out.assignments.length, 0);
+  assert.equal(out.unassigned[0].type, 'individual');
+});
+
+test('same-house supervisors are preferred for individual sessions', () => {
+  const out = run(
+    [p('עדי', 'social_worker', 'ramot')],
+    [sup('s1', 'אורית', ['hq'], 100), sup('s2', 'נועם', ['ramot'], 100)]);
+  assert.equal(out.assignments[0].supervisorId, 's2');
+});
+
+test('load balances by ratio of assigned to quarterly max', () => {
   const existing = [
-    { guideName: 'דנה', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'planned' },
-    { guideName: 'יואב', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'done', completedDate: '2026-07-10' },
-    { guideName: 'רות', house: 'ramot', supervisorId: 's1', quarter: Q, status: 'cancelled' },
+    { guideName: 'x1', house: 'hq', supervisorId: 's1', quarter: '2026-Q3', status: 'planned', type: 'individual', cluster: '', attendance: [] },
+    { guideName: 'x2', house: 'hq', supervisorId: 's1', quarter: '2026-Q3', status: 'planned', type: 'individual', cluster: '', attendance: [] },
   ];
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot'), g('יואב', 'ramot'), g('רות', 'ramot')],
-    supervisors: [sup('s1', 'אורית', ['ramot'], 10)],
-    hadrachot: existing, today: TODAY,
-  });
-  // Only רות (cancelled row = nothing) needs an assignment.
-  assert.deepEqual(out.assignments.map(a => a.guideName), ['רות']);
+  // s1: 2/10 = 20%; s2: 0/4 = 0% — s2 wins despite the lower max.
+  const out = run(
+    [p('עדי', 'social_worker', 'hq')],
+    [sup('s1', 'אורית', ['hq'], 10), sup('s2', 'נועם', ['hq'], 4)], existing);
+  assert.equal(out.assignments[0].supervisorId, 's2');
 });
 
-test('a hadracha from another quarter does not block this quarter', () => {
+test('when every capable supervisor is at capacity the person lands in unassigned', () => {
   const existing = [
-    { guideName: 'דנה', house: 'ramot', supervisorId: 's1', quarter: '2026-Q2', status: 'done', completedDate: '2026-05-10' },
+    { guideName: 'x1', house: 'hq', supervisorId: 's1', quarter: '2026-Q3', status: 'planned', type: 'individual', cluster: '', attendance: [] },
   ];
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot')],
-    supervisors: [sup('s1', 'אורית', ['ramot'], 10)],
-    hadrachot: existing, today: TODAY,
-  });
-  assert.equal(out.assignments.length, 1);
+  const out = run([p('עדי', 'social_worker', 'hq')], [sup('s1', 'אורית', ['hq'], 1)], existing);
+  assert.equal(out.assignments.length, 0);
+  assert.equal(out.unassigned[0].guideName, 'עדי');
 });
 
-test('inactive guides and inactive supervisors are excluded', () => {
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot', '2025-01-01', false), g('יואב', 'ramot')],
-    supervisors: [
-      sup('s1', 'אורית', ['ramot'], 10, false),
-      sup('s2', 'נועם', ['asher'], 10),
-    ],
-    hadrachot: [], today: TODAY,
-  });
+test('inactive people and inactive supervisors are excluded', () => {
+  const out = run(
+    [p('עדי', 'social_worker', 'hq', '2025-01-01', false), p('גיל', 'coordinator', 'hq')],
+    [sup('s1', 'אורית', ['hq'], 100, { active: false }), sup('s2', 'נועם', ['asher'], 100)]);
   assert.equal(out.assignments.length, 1);
-  assert.equal(out.assignments[0].guideName, 'יואב');
+  assert.equal(out.assignments[0].guideName, 'גיל');
   assert.equal(out.assignments[0].supervisorId, 's2'); // s1 inactive despite same house
 });
 
-test('new guides are scheduled first, immediately, with the deadline attached', () => {
-  const out = L.scheduleQuarter({
-    guides: [g('ותיקה', 'ramot', '2024-01-01'), g('חדשה', 'ramot', '2026-08-16')],
-    supervisors: [sup('s1', 'אורית', ['ramot'], 10)],
-    hadrachot: [], today: TODAY,
-  });
-  assert.equal(out.assignments[0].guideName, 'חדשה');
-  assert.equal(out.assignments[0].isNew, true);
-  assert.equal(out.assignments[0].scheduledDate, TODAY);
-  assert.equal(out.assignments[0].deadline, '2026-08-23');
-  assert.equal(out.assignments[1].isNew, false);
-  assert.equal(out.assignments[1].deadline, '');
-});
-
-test('regular guides are spread a week apart per supervisor, capped at quarter end', () => {
-  const guides = ['א', 'ב', 'ג', 'ד', 'ה', 'ו', 'ז'].map(n => g('מדריך ' + n, 'ramot'));
-  const out = L.scheduleQuarter({
-    guides,
-    supervisors: [sup('s1', 'אורית', ['ramot'], 100)],
-    hadrachot: [], today: '2026-08-19',
-  });
-  const dates = out.assignments.map(a => a.scheduledDate);
-  assert.equal(dates[0], '2026-08-19');
-  assert.equal(dates[1], '2026-08-26');
-  assert.equal(dates[2], '2026-09-02');
-  // 2026-Q3 ends 09-30 — the tail never spills past it.
-  assert.ok(dates.every(d => d <= '2026-09-30'));
-  assert.equal(dates[dates.length - 1], '2026-09-30');
-});
-
-test('a guide placed at two houses gets exactly one assignment', () => {
-  const out = L.scheduleQuarter({
-    guides: [g('דנה', 'ramot'), g('דנה', 'asher')],
-    supervisors: [sup('s1', 'אורית', ['ramot', 'asher'], 10)],
-    hadrachot: [], today: TODAY,
-  });
+test('a duplicate feed entry for the same person+role yields one session only', () => {
+  const out = run(
+    [p('עדי', 'social_worker', 'hq'), p('עדי', 'social_worker', 'ramot')],
+    [sup('s1', 'אורית', ['hq'], 100)]);
   assert.equal(out.assignments.length, 1);
-  assert.equal(out.assignments[0].house, 'ramot'); // first entry wins
+  assert.equal(out.assignments[0].house, 'hq'); // first entry wins
 });
+
+test('most urgent individuals are scheduled first — a stable, testable order', () => {
+  const sessions = [
+    doneIndividual('רגועה', 'hq', '2026-08-18'), // due 09-01
+    doneIndividual('דחופה', 'hq', '2026-07-01'), // due 07-15, long overdue
+  ];
+  const out = run(
+    [p('רגועה', 'social_worker', 'hq'), p('דחופה', 'social_worker', 'hq')],
+    [sup('s1', 'אורית', ['hq'], 100)], sessions);
+  assert.deepEqual(out.assignments.map(a => a.guideName), ['דחופה', 'רגועה']);
+});
+
+// ---- refreshers — רענון ----
+
+test('a refresher due within 14 days is scheduled with a refresher-capable supervisor', () => {
+  const olga = sup('s9', 'אולגה', ['ofroni'], 100,
+    { deliversGroup: false, deliversIndividual: false, deliversRefresher: true, roles: ['guide'] });
+  const sessions = [
+    doneGroup('kesaria', '2026-08-14', ['א']), // regular track covered
+    { guideName: 'א', house: 'ofroni', supervisorId: 's9', quarter: '2026-Q2',
+      scheduledDate: '2026-05-25', completedDate: '2026-05-25', status: 'done',
+      type: 'refresher', cluster: '', attendance: [] },
+  ];
+  const out = run([p('א', 'guide', 'ofroni')],
+    [sup('s1', 'אורית', ['ofroni'], 100), olga], sessions);
+  const ref = out.assignments.find(a => a.type === 'refresher');
+  assert.ok(ref);
+  assert.equal(ref.guideName, 'א');
+  assert.equal(ref.scheduledDate, '2026-08-25'); // 2026-05-25 + 3 months
+  assert.equal(ref.supervisorId, 's9');          // אולגה — refreshers only
+});
+
+test('a refresher-only supervisor never receives group or regular individual sessions', () => {
+  const olga = sup('s9', 'אולגה', ['ofroni', 'hq'], 100,
+    { deliversGroup: false, deliversIndividual: false, deliversRefresher: true, roles: ['guide'] });
+  const out = run(
+    [p('א', 'guide', 'ofroni', '2026-08-01'), p('עדי', 'social_worker', 'hq', '2026-08-01')],
+    [olga]);
+  assert.equal(out.assignments.length, 0);
+  assert.equal(out.unassigned.length, 2); // both tracks blocked — never silently dropped
+});
+
+test('a refresher due beyond the 14-day horizon is left for a later run', () => {
+  const olga = sup('s9', 'אולגה', ['ofroni'], 100,
+    { deliversGroup: false, deliversIndividual: false, deliversRefresher: true, roles: ['guide'] });
+  // Started 2026-08-01 → first refresher due 2026-11-01, far beyond horizon.
+  const out = run([p('א', 'guide', 'ofroni', '2026-08-01')],
+    [sup('s1', 'אורית', ['ofroni'], 100), olga]);
+  assert.equal(out.assignments.filter(a => a.type === 'refresher').length, 0);
+});
+
+test('a guide with a live planned refresher is not scheduled again', () => {
+  const olga = sup('s9', 'אולגה', ['ofroni'], 100,
+    { deliversGroup: false, deliversIndividual: false, deliversRefresher: true, roles: ['guide'] });
+  const sessions = [
+    doneGroup('kesaria', '2026-08-14', ['א']),
+    { guideName: 'א', house: 'ofroni', supervisorId: 's9', quarter: '2026-Q3',
+      scheduledDate: '2026-08-20', completedDate: '', status: 'planned',
+      type: 'refresher', cluster: '', attendance: [] },
+  ];
+  const out = run([p('א', 'guide', 'ofroni', '2026-01-01')],
+    [sup('s1', 'אורית', ['ofroni'], 100), olga], sessions);
+  assert.equal(out.assignments.filter(a => a.type === 'refresher').length, 0);
+});
+
+// ---- supervisor helpers ----
 
 test('supervisorCovers accepts both array and comma-string houses', () => {
   assert.equal(L.supervisorCovers({ houses: ['ramot', 'hq'] }, 'hq'), true);
   assert.equal(L.supervisorCovers({ houses: 'ramot, hq' }, 'hq'), true);
   assert.equal(L.supervisorCovers({ houses: 'ramot' }, 'hq'), false);
   assert.equal(L.supervisorCovers({ houses: '' }, 'hq'), false);
+});
+
+test('supervisorRoles: blank means ALL roles — legacy supervisors keep working', () => {
+  assert.deepEqual(L.supervisorRoles({ roles: [] }), L.ROLES);
+  assert.deepEqual(L.supervisorRoles({ roles: '' }), L.ROLES);
+  assert.deepEqual(L.supervisorRoles({}), L.ROLES);
+  assert.deepEqual(L.supervisorRoles({ roles: 'guide, coordinator' }), ['guide', 'coordinator']);
+  assert.deepEqual(L.supervisorRoles({ roles: ['house_manager'] }), ['house_manager']);
+});
+
+test('capability flags: undefined defaults to group+individual true, refresher false', () => {
+  assert.equal(L.deliversGroup({}), true);
+  assert.equal(L.deliversIndividual({}), true);
+  assert.equal(L.deliversRefresher({}), false);
+  assert.equal(L.deliversGroup({ deliversGroup: false }), false);
+  assert.equal(L.deliversIndividual({ deliversIndividual: false }), false);
+  assert.equal(L.deliversRefresher({ deliversRefresher: true }), true);
 });

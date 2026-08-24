@@ -8,25 +8,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@500;700;900&display=swap');
 
 *{box-sizing:border-box;margin:0;padding:0}
+/* Warm brown base, red and orange accents, gold highlights for primary
+   actions and active states. Dark theme, RTL. */
 :root{
-  --bg:#0B1220;
-  --bg-surface:#131C30;
-  --bg-elevated:#1A2540;
-  --ink:#F4F4F2;
-  --ink-soft:#C8C9D2;
-  --muted:#8A8FA3;
-  --line:rgba(255,255,255,0.08);
-  --line-strong:rgba(255,255,255,0.16);
-  --accent-1:#FAC775;
-  --accent-2:#EF9F27;
-  --accent-soft:rgba(239,159,39,0.12);
-  --accent-deep:#412402;
-  --success:#5DCAA5;
-  --success-soft:rgba(93,202,165,0.12);
-  --warning:#EF9F27;
-  --danger:#E24B4A;
-  --danger-soft:rgba(226,75,74,0.12);
-  --grad:linear-gradient(90deg,var(--accent-1),var(--accent-2));
+  --bg:#1B120A;
+  --bg-surface:#261A10;
+  --bg-elevated:#332417;
+  --ink:#F7F0E5;
+  --ink-soft:#DFCFBA;
+  --muted:#AB937B;
+  --line:rgba(255,230,200,0.09);
+  --line-strong:rgba(255,230,200,0.18);
+  --gold-1:#F2CB68;
+  --gold-2:#D9992B;
+  --gold-soft:rgba(217,153,43,0.14);
+  --gold-deep:#3A2604;
+  --orange:#E5813C;
+  --orange-soft:rgba(229,129,60,0.16);
+  --success:#6CC08D;
+  --success-soft:rgba(108,192,141,0.13);
+  --warning:#E5813C;
+  --danger:#DA4A3E;
+  --danger-soft:rgba(218,74,62,0.15);
+  --grad:linear-gradient(90deg,var(--gold-1),var(--gold-2));
 }
 body{
   font-family:'Heebo',sans-serif;
@@ -41,7 +45,7 @@ body{
 
 /* Topbar */
 .topbar{
-  background:#070C18;
+  background:#150D06;
   padding:16px 0;
   position:sticky;top:0;z-index:50;
   border-bottom:1px solid var(--line);
@@ -55,7 +59,7 @@ body{
   font-family:inherit;cursor:pointer;transition:.15s;
 }
 .nav button:hover{background:var(--bg-elevated);color:var(--ink)}
-.nav button.on{background:var(--grad);color:var(--accent-deep);border-color:transparent}
+.nav button.on{background:var(--grad);color:var(--gold-deep);border-color:transparent}
 .logout{background:transparent;border:none;color:var(--muted);padding:8px 12px;border-radius:999px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
 .logout:hover{color:var(--ink);background:var(--bg-elevated)}
 
@@ -68,8 +72,8 @@ body{
   background:var(--bg);color:var(--ink);font-size:22px;text-align:center;letter-spacing:8px;
   font-family:inherit;direction:ltr;
 }
-.login input:focus{outline:none;border-color:var(--accent-2)}
-.login button{width:100%;margin-top:14px;padding:13px;border-radius:12px;border:none;background:var(--grad);color:var(--accent-deep);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+.login input:focus{outline:none;border-color:var(--gold-2)}
+.login button{width:100%;margin-top:14px;padding:13px;border-radius:12px;border:none;background:var(--grad);color:var(--gold-deep);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
 .login .err{color:var(--danger);font-size:13px;margin-top:12px;min-height:18px}
 
 /* Summary bar */
@@ -78,17 +82,18 @@ body{
 .pill{background:var(--bg-surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--ink-soft)}
 .pill b{color:var(--ink)}
 .pill.bad{border-color:var(--danger);color:var(--danger)}
+.pill.firstmonth{border-color:var(--orange);color:var(--orange)}
 .grow{flex:1}
 .btn{
   border:none;border-radius:12px;padding:11px 20px;font-size:14px;font-weight:700;
   font-family:inherit;cursor:pointer;transition:.15s;
 }
-.btn.primary{background:var(--grad);color:var(--accent-deep)}
+.btn.primary{background:var(--grad);color:var(--gold-deep)}
 .btn.primary:disabled{opacity:.5;cursor:default}
 .btn.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--ink-soft)}
 .btn.ghost:hover{color:var(--ink);background:var(--bg-elevated)}
 .btn.small{padding:7px 12px;font-size:12px;border-radius:9px}
-.btn.done{background:var(--success);color:#06281C}
+.btn.done{background:var(--success);color:#0B2415}
 .btn.danger-ghost{background:transparent;border:1px solid var(--line-strong);color:var(--muted)}
 .btn.danger-ghost:hover{color:var(--danger);border-color:var(--danger)}
 
@@ -99,8 +104,10 @@ body{
 .card{background:var(--bg-surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
 .section.alert .card{border-color:var(--danger)}
 .section.alert h2{color:var(--danger)}
+.section.groups h2{color:var(--gold-1)}
+.section.groups .card{border-color:var(--gold-2)}
 
-/* Guide rows */
+/* People rows */
 .row{
   display:flex;align-items:center;gap:12px;flex-wrap:wrap;
   padding:12px 16px;border-bottom:1px solid var(--line);
@@ -109,9 +116,13 @@ body{
 .row.overdue{background:var(--danger-soft)}
 .gname{font-weight:600;font-size:14px;min-width:140px}
 .gsub{color:var(--muted);font-size:12px}
+.due{font-size:12px;color:var(--ink-soft);white-space:nowrap}
+.due b{color:var(--ink)}
 .badge{font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
-.badge.new{background:var(--accent-soft);color:var(--accent-1)}
+.badge.role{background:var(--bg-elevated);color:var(--ink-soft)}
+.badge.new{background:var(--orange-soft);color:var(--orange)}
 .badge.overdue{background:var(--danger-soft);color:var(--danger)}
+.badge.refresher{background:var(--gold-soft);color:var(--gold-1)}
 .badge.planned{background:var(--bg-elevated);color:var(--ink-soft)}
 .badge.done{background:var(--success-soft);color:var(--success)}
 .badge.none{background:var(--bg-elevated);color:var(--muted)}
@@ -120,14 +131,27 @@ body{
   background:var(--bg);border:1px solid var(--line-strong);color:var(--ink);
   border-radius:9px;padding:6px 8px;font-size:12px;font-family:inherit;
 }
-.row select:focus,.row input:focus{outline:none;border-color:var(--accent-2)}
+.row select:focus,.row input:focus{outline:none;border-color:var(--gold-2)}
 .spacer{flex:1}
 .rowactions{display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+
+/* Group session cards */
+.gsession{padding:14px 16px;border-bottom:1px solid var(--line)}
+.gsession:last-child{border-bottom:none}
+.gsession .ghead{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.gsession .gtitle{font-weight:700;font-size:14px;color:var(--gold-1)}
+.attend{display:flex;flex-wrap:wrap;gap:8px}
+.attend label{
+  display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-soft);
+  border:1px solid var(--line-strong);border-radius:999px;padding:6px 12px;cursor:pointer;
+}
+.attend label.on{background:var(--gold-soft);border-color:var(--gold-2);color:var(--gold-1)}
+.attend input{display:none}
 
 /* Banner */
 .banner{border-radius:14px;padding:14px 18px;margin:18px 0;font-size:14px;border:1px solid}
 .banner.error{background:var(--danger-soft);border-color:var(--danger);color:var(--ink)}
-.banner.info{background:var(--accent-soft);border-color:var(--accent-2);color:var(--ink)}
+.banner.info{background:var(--gold-soft);border-color:var(--gold-2);color:var(--ink)}
 
 /* Supervisors */
 .suptable{width:100%}
@@ -136,9 +160,10 @@ body{
 .suprow.off{opacity:.55}
 .supname{font-weight:600;min-width:130px}
 .suphouses{color:var(--muted);font-size:12px;flex:1;min-width:160px}
+.supcaps{display:flex;gap:6px;flex-wrap:wrap}
 
 /* Forms and modal */
-.overlay{position:fixed;inset:0;background:rgba(4,8,16,.72);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:8vh 16px}
+.overlay{position:fixed;inset:0;background:rgba(21,13,6,.75);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:8vh 16px}
 .overlay.open{display:flex}
 .modal{background:var(--bg-surface);border:1px solid var(--line-strong);border-radius:16px;padding:24px;width:100%;max-width:460px;max-height:80vh;overflow:auto}
 .modal h3{font-size:17px;margin-bottom:16px}
@@ -148,13 +173,13 @@ body{
   width:100%;background:var(--bg);border:1px solid var(--line-strong);color:var(--ink);
   border-radius:10px;padding:10px;font-size:14px;font-family:inherit;
 }
-.field input:focus,.field select:focus{outline:none;border-color:var(--accent-2)}
+.field input:focus,.field select:focus{outline:none;border-color:var(--gold-2)}
 .houseboxes{display:flex;flex-wrap:wrap;gap:8px}
 .houseboxes label{
   display:flex;align-items:center;gap:5px;font-size:12px;color:var(--ink-soft);
   border:1px solid var(--line-strong);border-radius:999px;padding:6px 12px;cursor:pointer;
 }
-.houseboxes label.on{background:var(--accent-soft);border-color:var(--accent-2);color:var(--accent-1)}
+.houseboxes label.on{background:var(--gold-soft);border-color:var(--gold-2);color:var(--gold-1)}
 .houseboxes input{display:none}
 .modal .actions{display:flex;gap:10px;justify-content:flex-start;margin-top:20px}
 .preview-list{max-height:280px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin:10px 0}
@@ -191,7 +216,7 @@ body{
     <div class="wrap">
       <span class="brand-name">E-ZONE · מעקב הדרכות</span>
       <div class="nav">
-        <button data-view="board" class="on">מדריכים</button>
+        <button data-view="board" class="on">צוות</button>
         <button data-view="supervisors">מנחים</button>
         <button class="logout" id="logoutBtn">יציאה</button>
       </div>
@@ -204,11 +229,12 @@ body{
     <!-- ===== Board view ===== -->
     <div id="boardView">
       <div class="summary">
-        <span class="qtitle" id="quarterTitle"></span>
-        <span class="pill" id="donePill"></span>
+        <span class="qtitle">הדרכות לפי תפקיד</span>
+        <span class="pill" id="totalPill"></span>
+        <span class="pill firstmonth" id="firstMonthPill" style="display:none"></span>
         <span class="pill bad" id="overduePill" style="display:none"></span>
         <span class="grow"></span>
-        <button class="btn primary" id="scheduleBtn">שבץ רבעון</button>
+        <button class="btn primary" id="scheduleBtn">שבץ הדרכות</button>
       </div>
       <div id="boardContent" class="loading">טוען נתונים…</div>
     </div>
@@ -244,7 +270,7 @@ body{
 <!-- ===== Schedule preview modal ===== -->
 <div class="overlay" id="scheduleOverlay">
   <div class="modal">
-    <h3>שיבוץ רבעון</h3>
+    <h3>שיבוץ הדרכות</h3>
     <div class="gsub" id="scheduleSummary"></div>
     <div class="preview-list" id="schedulePreview"></div>
     <div class="gsub" id="scheduleUnassigned" style="color:var(--danger)"></div>
@@ -268,6 +294,14 @@ body{
       <div class="houseboxes" id="supHouses"></div>
     </div>
     <div class="field">
+      <label>סוגי הדרכה</label>
+      <div class="houseboxes" id="supCaps"></div>
+    </div>
+    <div class="field">
+      <label>תפקידים בהנחיה</label>
+      <div class="houseboxes" id="supRoles"></div>
+    </div>
+    <div class="field">
       <label>מקסימום הדרכות ברבעון</label>
       <input type="number" id="supMax" min="1" max="500" value="10"/>
     </div>
@@ -283,7 +317,7 @@ body{
 <script src="/lib/scheduler.js"></script>
 <script>
 'use strict';
-/* All compliance, overdue and scheduling logic runs HERE in the browser via
+/* All cadence, compliance and scheduling logic runs HERE in the browser via
    lib/scheduler.js — the backend only stores and returns raw rows. */
 
 const L = window.HadrachotLogic;
@@ -300,16 +334,28 @@ const HOUSES = [
 const HOUSE_NAME = {};
 HOUSES.forEach(h => HOUSE_NAME[h.id] = h.name);
 
-const STATUS_LABEL = { planned: 'מתוכנן', done: 'בוצע', cancelled: 'בוטל' };
+const CLUSTER_LABEL = { kesaria: 'קיסריה', raanana: 'רעננה' };
+const ROLE_LABEL = {
+  guide: 'מדריך',
+  social_worker: 'עובד סוציאלי',
+  house_manager: 'מנהל בית',
+  coordinator: 'רכז',
+};
+const ROLE_LABEL_PLURAL = {
+  guide: 'מדריכים',
+  social_worker: 'עובדים סוציאליים',
+  house_manager: 'מנהלי בתים',
+  coordinator: 'רכזים',
+};
 
 // ---- state ----
 let token = localStorage.getItem('hadrachot_token') || '';
-let guides = null;      // live from the staffing feed, null until loaded
-let hadrachot = [];
+let people = null;      // live from the staffing feed, null until loaded
+let sessions = [];
 let supervisors = [];
 let currentView = 'board';
 let editingSupId = null;
-let completingCtx = null; // { hadrachaId } or { guide } for direct completion
+let completingCtx = null; // { hadrachaId } or { direct } for direct completion
 
 function todayStr() {
   const d = new Date();
@@ -375,30 +421,30 @@ async function refresh() {
   banner.style.display = 'none';
   document.getElementById('boardContent').innerHTML = '<div class="loading">טוען נתונים…</div>';
   try {
-    // Guides come from the staffing app — fail-closed: on any error the
+    // People come from the staffing app — fail-closed: on any error the
     // board is NOT rendered, so an empty roster can never look compliant.
     const [guidesResp, dataResp] = await Promise.all([
       api('/api/guides'),
       api('/api/data'),
     ]);
-    guides = guidesResp.guides || [];
-    hadrachot = dataResp.hadrachot || [];
+    people = guidesResp.guides || [];
+    sessions = dataResp.hadrachot || [];
     supervisors = dataResp.supervisors || [];
     render();
   } catch (e) {
     if (e.message === 'unauthorized') return;
-    guides = null;
-    banner.textContent = 'לא ניתן לטעון נתונים כרגע: ' + e.message + '. רשימת המדריכים מגיעה ישירות מהמערכת הראשית — בלעדיה אין תצוגה.';
+    people = null;
+    banner.textContent = 'לא ניתן לטעון נתונים כרגע: ' + e.message + '. רשימת אנשי הצוות מגיעה ישירות מהמערכת הראשית — בלעדיה אין תצוגה.';
     banner.style.display = 'block';
     document.getElementById('boardContent').innerHTML = '';
     renderSupervisors();
   }
 }
 
-// Refresh only the sheet-backed data after a write; guides stay as loaded.
+// Refresh only the sheet-backed data after a write; people stay as loaded.
 async function refreshData() {
   const dataResp = await api('/api/data');
-  hadrachot = dataResp.hadrachot || [];
+  sessions = dataResp.hadrachot || [];
   supervisors = dataResp.supervisors || [];
   render();
 }
@@ -420,23 +466,20 @@ function heDate(d) {
   return d.slice(8, 10) + '.' + d.slice(5, 7) + '.' + d.slice(0, 4);
 }
 
-function quarterTitle(q) {
-  if (!L.isValidQuarter(q)) return '';
-  return 'רבעון ' + q.slice(6) + ' · ' + q.slice(0, 4);
-}
-
-// One board entry per guide name; a guide placed at two houses shows under
-// the first house seen.
+// One board entry per person per role.
 function boardEntries() {
   const today = todayStr();
   const seen = {};
   const entries = [];
-  (guides || []).forEach(g => {
-    const name = L.normalizeGuideName(g.name);
-    if (!name || seen[name]) return;
-    seen[name] = true;
-    const st = L.guideStatus(g, hadrachot, today);
-    entries.push({ guide: g, name, st });
+  (people || []).forEach(p => {
+    const name = L.normalizeGuideName(p.name);
+    if (!name) return;
+    const role = L.normalizeRole(p.role);
+    const key = name + '|' + role;
+    if (seen[key]) return;
+    seen[key] = true;
+    const st = L.personStatus(p, sessions, today);
+    entries.push({ person: p, name, role, st });
   });
   return entries;
 }
@@ -447,19 +490,20 @@ function supervisorName(id) {
 }
 
 function renderBoard() {
-  const today = todayStr();
-  const quarter = L.quarterOf(today);
-  document.getElementById('quarterTitle').textContent = quarterTitle(quarter);
-
-  if (guides === null) return; // load failed — banner already shown
+  if (people === null) return; // load failed — banner already shown
 
   const entries = boardEntries();
-  const activeEntries = entries.filter(e => e.guide.active !== false);
-  const doneCount = activeEntries.filter(e => e.st.status === 'done').length;
-  const overdueEntries = activeEntries.filter(e => e.st.overdue);
+  const activeEntries = entries.filter(e => e.person.active !== false);
+  const overdueEntries = activeEntries.filter(e => e.st.overdue || e.st.refresherOverdue);
+  const firstMonthCount = activeEntries.filter(e => e.st.firstMonth).length;
 
-  document.getElementById('donePill').innerHTML =
-    'בוצעו <b>' + doneCount + '</b> מתוך <b>' + activeEntries.length + '</b> ברבעון';
+  document.getElementById('totalPill').innerHTML =
+    'אנשי צוות פעילים: <b>' + activeEntries.length + '</b>';
+  const fp = document.getElementById('firstMonthPill');
+  if (firstMonthCount) {
+    fp.style.display = '';
+    fp.innerHTML = 'בחודש הראשון: <b>' + firstMonthCount + '</b>';
+  } else fp.style.display = 'none';
   const op = document.getElementById('overduePill');
   if (overdueEntries.length) {
     op.style.display = '';
@@ -468,55 +512,69 @@ function renderBoard() {
 
   let html = '';
 
+  // Overdue first — the whole point of the board.
   if (overdueEntries.length) {
+    const sorted = overdueEntries.slice().sort((a, b) => b.st.daysOverdue - a.st.daysOverdue);
     html += '<div class="section alert"><h2>דורש טיפול מיידי <span class="count">' +
       overdueEntries.length + '</span></h2><div class="card">';
-    overdueEntries.forEach(e => { html += guideRow(e, true); });
+    sorted.forEach(e => { html += personRow(e, true); });
     html += '</div></div>';
   }
 
+  html += groupSessionsSection(entries);
+
   HOUSES.forEach(h => {
-    const inHouse = entries.filter(e => e.guide.house === h.id);
+    const inHouse = entries.filter(e => e.person.house === h.id);
     if (!inHouse.length) return;
+    // Overdue first inside each house, then by next-due date.
+    const sorted = inHouse.slice().sort((a, b) => {
+      const ao = a.st.overdue || a.st.refresherOverdue ? 0 : 1;
+      const bo = b.st.overdue || b.st.refresherOverdue ? 0 : 1;
+      if (ao !== bo) return ao - bo;
+      return String(a.st.nextDue || '9999').localeCompare(String(b.st.nextDue || '9999'));
+    });
     html += '<div class="section"><h2>' + esc(h.name) + ' <span class="count">' +
       inHouse.length + '</span></h2><div class="card">';
-    inHouse.forEach(e => { html += guideRow(e, false); });
+    sorted.forEach(e => { html += personRow(e, false); });
     html += '</div></div>';
   });
 
-  if (!html) html = '<div class="loading">אין מדריכים להצגה</div>';
+  if (!html) html = '<div class="loading">אין אנשי צוות להצגה</div>';
   document.getElementById('boardContent').innerHTML = html;
   bindBoardEvents();
 }
 
-function guideRow(entry, inAlert) {
-  const g = entry.guide;
+function personRow(entry, inAlert) {
+  const p = entry.person;
   const st = entry.st;
-  const inactive = g.active === false;
+  const inactive = p.active === false;
   const planned = st.planned;
 
-  let badges = '';
+  let badges = '<span class="badge role">' + esc(ROLE_LABEL[entry.role] || entry.role) + '</span>';
   if (inactive) badges += '<span class="badge inactive">לא פעיל</span>';
-  if (st.newGuide) badges += '<span class="badge new">מדריך חדש · עד ' + heDate(st.deadline) + '</span>';
+  if (st.firstMonth) {
+    badges += '<span class="badge new">חודש ראשון · עד ' + heDate(st.deadline || st.nextDue) + '</span>';
+  }
   if (st.overdue && !inAlert) badges += '<span class="badge overdue">באיחור</span>';
-  badges += '<span class="badge ' + st.status + '">' +
-    (st.status === 'none' ? 'אין הדרכה' : STATUS_LABEL[st.status]) + '</span>';
+  if (st.refresherOverdue) badges += '<span class="badge overdue">רענון באיחור</span>';
+
+  // Next-due and days-overdue — the per-person compliance line.
+  let due = '';
+  if (st.overdue) {
+    due = '<span class="due">הדרכה עד <b>' + heDate(st.nextDue) + '</b> · באיחור <b>' +
+      st.daysOverdue + '</b> ימים</span>';
+  } else if (st.nextDue) {
+    due = '<span class="due">הבאה עד <b>' + heDate(st.nextDue) + '</b></span>';
+  }
+  if (st.lastDone) {
+    due += '<span class="gsub">אחרונה ' + heDate(st.lastDone) + '</span>';
+  }
 
   let details = '';
   let controls = '';
 
-  if (st.status === 'done') {
-    const doneRow = hadrachot.find(h =>
-      L.normalizeGuideName(h.guideName) === entry.name &&
-      h.quarter === st.quarter && h.status === 'done');
-    if (doneRow) {
-      details = '<span class="gsub">בוצע ב־' + heDate(doneRow.completedDate) +
-        (doneRow.supervisorId ? ' · ' + esc(supervisorName(doneRow.supervisorId)) : '') + '</span>';
-      controls = '<button class="btn small danger-ghost" data-act="reopen" data-id="' +
-        esc(doneRow.id) + '">בטל סימון</button>';
-    }
-  } else if (planned) {
-    const supOptions = supervisorOptions(planned.supervisorId, g.house);
+  if (planned && L.sessionTypeOf(planned) === 'individual') {
+    const supOptions = supervisorOptions(planned.supervisorId, p.house, entry.role, false);
     details =
       '<select data-act="supervisor" data-id="' + esc(planned.id) + '">' + supOptions + '</select>' +
       '<input type="date" value="' + esc(planned.scheduledDate || '') +
@@ -525,31 +583,112 @@ function guideRow(entry, inAlert) {
       '<button class="btn small done" data-act="complete" data-id="' + esc(planned.id) +
       '" data-name="' + esc(entry.name) + '">בוצע</button>' +
       '<button class="btn small danger-ghost" data-act="cancel" data-id="' + esc(planned.id) + '">ביטול</button>';
+  } else if (planned && L.sessionTypeOf(planned) === 'group') {
+    details = '<span class="badge planned">קבוצתית · ' +
+      esc(CLUSTER_LABEL[planned.cluster] || planned.cluster) +
+      (planned.scheduledDate ? ' · ' + heDate(planned.scheduledDate) : '') + '</span>';
   } else if (!inactive) {
-    // No hadracha this quarter — manual single assignment.
+    // Nothing planned — manual single assignment or direct completion.
     details = '<select data-act="assign" data-name="' + esc(entry.name) +
-      '" data-house="' + esc(g.house) + '"><option value="">שיבוץ ידני…</option>' +
-      supervisorOptions('', g.house, true) + '</select>';
+      '" data-house="' + esc(p.house) + '"><option value="">שיבוץ ידני…</option>' +
+      supervisorOptions('', p.house, entry.role, true) + '</select>';
     controls = '<button class="btn small done" data-act="complete-direct" data-name="' +
-      esc(entry.name) + '" data-house="' + esc(g.house) + '">בוצע</button>';
+      esc(entry.name) + '" data-house="' + esc(p.house) + '">בוצע</button>';
   }
 
-  return '<div class="row' + (st.overdue ? ' overdue' : '') + '">' +
+  // The refresher track — guides only.
+  if (st.plannedRefresher) {
+    details += '<span class="badge refresher">רענון · ' +
+      heDate(st.plannedRefresher.scheduledDate) + '</span>';
+    controls += '<button class="btn small ghost" data-act="complete" data-id="' +
+      esc(st.plannedRefresher.id) + '" data-name="' + esc(entry.name) + ' · רענון">רענון בוצע</button>';
+  } else if (st.nextRefresherDue && !st.refresherOverdue && entry.role === 'guide') {
+    details += '<span class="gsub">רענון עד ' + heDate(st.nextRefresherDue) + '</span>';
+  } else if (st.refresherOverdue) {
+    details += '<span class="due">רענון עד <b>' + heDate(st.nextRefresherDue) + '</b></span>';
+  }
+
+  // Undo for a mistaken completion — individual/refresher rows only (a group
+  // session is reopened from history by support, it affects everyone).
+  if (st.lastDone && !inAlert) {
+    const doneRow = sessions.find(h =>
+      h.status === 'done' && L.sessionTypeOf(h) !== 'group' &&
+      L.normalizeGuideName(h.guideName) === entry.name &&
+      h.completedDate === st.lastDone);
+    if (doneRow) {
+      controls += '<button class="btn small danger-ghost" data-act="reopen" data-id="' +
+        esc(doneRow.id) + '">בטל סימון</button>';
+    }
+  }
+
+  return '<div class="row' + (st.overdue || st.refresherOverdue ? ' overdue' : '') + '">' +
     '<span class="gname">' + esc(entry.name) +
-    ' <span class="gsub">' + esc(HOUSE_NAME[g.house] || g.house) + '</span></span>' +
-    badges +
-    details +
+    ' <span class="gsub">' + esc(HOUSE_NAME[p.house] || p.house) + '</span></span>' +
+    badges + due + details +
     '<span class="spacer"></span>' +
     '<span class="rowactions">' + controls + '</span>' +
     '</div>';
 }
 
-function supervisorOptions(selectedId, house, skipEmpty) {
-  const active = supervisors.filter(s => s.active !== false);
-  const same = active.filter(s => L.supervisorCovers(s, house));
-  const rest = active.filter(s => !L.supervisorCovers(s, house));
+// Planned group sessions per cluster, with per-guide attendance marking.
+function groupSessionsSection(entries) {
+  const plannedGroups = sessions
+    .filter(s => s.status === 'planned' && L.sessionTypeOf(s) === 'group')
+    .sort((a, b) => String(a.scheduledDate || '').localeCompare(String(b.scheduledDate || '')));
+  if (!plannedGroups.length) return '';
+
+  let html = '<div class="section groups"><h2>הדרכות קבוצתיות מתוכננות <span class="count">' +
+    plannedGroups.length + '</span></h2><div class="card">';
+  plannedGroups.forEach(s => {
+    const members = entries.filter(e =>
+      e.role === 'guide' && e.person.active !== false &&
+      L.clusterOfHouse(e.person.house) === s.cluster);
+    const attending = L.attendanceList(s);
+    html += '<div class="gsession" data-session="' + esc(s.id) + '">' +
+      '<div class="ghead">' +
+      '<span class="gtitle">' + esc(CLUSTER_LABEL[s.cluster] || s.cluster) + '</span>' +
+      '<select data-act="supervisor" data-id="' + esc(s.id) + '">' +
+        groupSupervisorOptions(s.supervisorId) + '</select>' +
+      '<input type="date" value="' + esc(s.scheduledDate || '') +
+        '" data-act="reschedule" data-id="' + esc(s.id) + '"/>' +
+      '<span class="spacer"></span>' +
+      '<button class="btn small done" data-act="complete" data-id="' + esc(s.id) +
+        '" data-name="קבוצתית ' + esc(CLUSTER_LABEL[s.cluster] || s.cluster) + '">בוצע</button>' +
+      '<button class="btn small danger-ghost" data-act="cancel" data-id="' + esc(s.id) + '">ביטול</button>' +
+      '</div>' +
+      '<div class="attend">' +
+      members.map(m => {
+        const on = attending.indexOf(m.name) >= 0;
+        return '<label class="' + (on ? 'on' : '') + '"><input type="checkbox" value="' +
+          esc(m.name) + '"' + (on ? ' checked' : '') + '/>' + esc(m.name) +
+          ' <span class="gsub">' + esc(HOUSE_NAME[m.person.house] || '') + '</span></label>';
+      }).join('') +
+      '</div></div>';
+  });
+  html += '</div></div>';
+  return html;
+}
+
+// Supervisors able to take an INDIVIDUAL session for this role, same-house
+// first.
+function supervisorOptions(selectedId, house, role, skipEmpty) {
+  const capable = supervisors.filter(s =>
+    s.active !== false && L.deliversIndividual(s) && L.supervisorCanRole(s, role));
+  const same = capable.filter(s => L.supervisorCovers(s, house));
+  const rest = capable.filter(s => !L.supervisorCovers(s, house));
   let html = skipEmpty ? '' : '<option value="">ללא מנחה</option>';
   same.concat(rest).forEach(s => {
+    html += '<option value="' + esc(s.id) + '"' +
+      (s.id === selectedId ? ' selected' : '') + '>' + esc(s.name) + '</option>';
+  });
+  return html;
+}
+
+function groupSupervisorOptions(selectedId) {
+  const capable = supervisors.filter(s =>
+    s.active !== false && L.deliversGroup(s) && L.supervisorCanRole(s, 'guide'));
+  let html = '<option value="">ללא מנחה</option>';
+  capable.forEach(s => {
     html += '<option value="' + esc(s.id) + '"' +
       (s.id === selectedId ? ' selected' : '') + '>' + esc(s.name) + '</option>';
   });
@@ -593,8 +732,19 @@ function bindBoardEvents() {
           supervisorId: el.value,
           quarter: L.quarterOf(todayStr()),
           scheduledDate: todayStr(),
+          type: 'individual',
         },
       }, 'ההדרכה שובצה');
+    };
+  });
+  // Attendance — marked per guide on a group session.
+  root.querySelectorAll('.gsession .attend input').forEach(cb => {
+    cb.onchange = () => {
+      const card = cb.closest('.gsession');
+      cb.parentElement.classList.toggle('on', cb.checked);
+      const names = Array.from(card.querySelectorAll('.attend input:checked')).map(x => x.value);
+      doAction({ action: 'setAttendance', id: card.dataset.session, attendance: names },
+        'הנוכחות עודכנה');
     };
   });
 }
@@ -627,7 +777,7 @@ async function confirmComplete() {
     if (ctx.hadrachaId) {
       await action({ action: 'completeHadracha', id: ctx.hadrachaId, completedDate: date });
     } else if (ctx.direct) {
-      // Guide had nothing this quarter — create then complete in two steps.
+      // Nothing planned — create then complete in two steps.
       const created = await action({
         action: 'addHadracha',
         hadracha: {
@@ -636,6 +786,7 @@ async function confirmComplete() {
           supervisorId: '',
           quarter: L.quarterOf(date),
           scheduledDate: date,
+          type: 'individual',
         },
       });
       await action({ action: 'completeHadracha', id: created.hadracha.id, completedDate: date });
@@ -647,13 +798,13 @@ async function confirmComplete() {
   }
 }
 
-// ---- auto-scheduler — שבץ רבעון ----
+// ---- auto-scheduler — שבץ ----
 let pendingSchedule = null;
 
 function openSchedule() {
-  if (guides === null) { toast('אין נתוני מדריכים — לא ניתן לשבץ'); return; }
+  if (people === null) { toast('אין נתוני צוות — לא ניתן לשבץ'); return; }
   const today = todayStr();
-  const result = L.scheduleQuarter({ guides, supervisors, hadrachot, today });
+  const result = L.scheduleSessions({ people, supervisors, sessions, today });
   pendingSchedule = result;
 
   const summaryEl = document.getElementById('scheduleSummary');
@@ -662,21 +813,33 @@ function openSchedule() {
   const confirmBtn = document.getElementById('scheduleConfirm');
 
   if (!result.assignments.length && !result.unassigned.length) {
-    summaryEl.textContent = 'כל המדריכים הפעילים כבר משובצים לרבעון הנוכחי';
+    summaryEl.textContent = 'כל אנשי הצוות הפעילים כבר משובצים';
     listEl.innerHTML = '';
     unEl.textContent = '';
     confirmBtn.disabled = true;
   } else {
     summaryEl.textContent = 'שיבוצים חדשים: ' + result.assignments.length;
-    listEl.innerHTML = result.assignments.map(a =>
-      '<div class="pitem"><span>' + esc(a.guideName) +
-      (a.isNew ? ' <span class="badge new">חדש · עד ' + heDate(a.deadline) + '</span>' : '') +
-      '</span><span class="pmeta">' + esc(supervisorName(a.supervisorId)) +
-      ' · ' + heDate(a.scheduledDate) + '</span></div>'
-    ).join('');
+    listEl.innerHTML = result.assignments.map(a => {
+      let who;
+      if (a.type === 'group') {
+        who = 'קבוצתית · ' + esc(CLUSTER_LABEL[a.cluster] || a.cluster) +
+          ' · ' + a.guideNames.length + ' מדריכים';
+      } else if (a.type === 'refresher') {
+        who = 'רענון · ' + esc(a.guideName);
+      } else {
+        who = esc(a.guideName) + ' · ' + esc(ROLE_LABEL[a.role] || a.role);
+      }
+      return '<div class="pitem"><span>' + who +
+        (a.deadline ? ' <span class="badge new">עד ' + heDate(a.deadline) + '</span>' : '') +
+        '</span><span class="pmeta">' + esc(supervisorName(a.supervisorId)) +
+        ' · ' + heDate(a.scheduledDate) + '</span></div>';
+    }).join('');
     unEl.textContent = result.unassigned.length
-      ? 'ללא שיבוץ — כל המנחים בתפוסה מלאה: ' +
-        result.unassigned.map(u => u.guideName).join(', ')
+      ? 'ללא שיבוץ — אין מנחה מתאים או פנוי: ' +
+        result.unassigned.map(u =>
+          u.type === 'group' ? 'קבוצתית ' + (CLUSTER_LABEL[u.cluster] || u.cluster)
+            : (u.type === 'refresher' ? 'רענון ' + u.guideName : u.guideName)
+        ).join(', ')
       : '';
     confirmBtn.disabled = !result.assignments.length;
   }
@@ -690,6 +853,8 @@ async function confirmSchedule() {
     supervisorId: a.supervisorId,
     quarter: a.quarter,
     scheduledDate: a.scheduledDate,
+    type: a.type,
+    cluster: a.cluster,
   }));
   closeOverlays();
   if (!items.length) return;
@@ -712,12 +877,19 @@ function renderSupervisors() {
   const today = todayStr();
   const quarter = L.quarterOf(today);
   el.innerHTML = supervisors.map(s => {
-    const load = hadrachot.filter(h =>
+    const load = sessions.filter(h =>
       h.supervisorId === s.id && h.quarter === quarter && h.status !== 'cancelled').length;
+    let caps = '';
+    if (L.deliversGroup(s)) caps += '<span class="badge planned">קבוצתיות</span>';
+    if (L.deliversIndividual(s)) caps += '<span class="badge planned">אישיות</span>';
+    if (L.deliversRefresher(s)) caps += '<span class="badge refresher">רענונים</span>';
+    const roles = L.supervisorRoles(s).map(r => ROLE_LABEL_PLURAL[r] || r).join(' · ');
     return '<div class="suprow' + (s.active === false ? ' off' : '') + '">' +
       '<span class="supname">' + esc(s.name) + '</span>' +
       '<span class="suphouses">' +
-        (s.houses || []).map(h => esc(HOUSE_NAME[h] || h)).join(' · ') + '</span>' +
+        (s.houses || []).map(h => esc(HOUSE_NAME[h] || h)).join(' · ') +
+        '<br/><span class="gsub">' + esc(roles) + '</span></span>' +
+      '<span class="supcaps">' + caps + '</span>' +
       '<span class="pill">ברבעון: <b>' + load + '</b> מתוך <b>' + esc(s.maxPerQuarter) + '</b></span>' +
       '<span class="rowactions">' +
       '<button class="btn small ghost" data-sup-edit="' + esc(s.id) + '">עריכה</button>' +
@@ -739,21 +911,42 @@ function renderSupervisors() {
   });
 }
 
+const CAPS = [
+  { id: 'deliversGroup', name: 'הדרכות קבוצתיות' },
+  { id: 'deliversIndividual', name: 'הדרכות אישיות' },
+  { id: 'deliversRefresher', name: 'רענונים' },
+];
+
+function checkboxRow(el, items, isOn) {
+  el.innerHTML = items.map(it => {
+    const on = isOn(it.id);
+    return '<label class="' + (on ? 'on' : '') + '"><input type="checkbox" value="' +
+      it.id + '"' + (on ? ' checked' : '') + '/>' + esc(it.name) + '</label>';
+  }).join('');
+  el.querySelectorAll('input').forEach(cb => {
+    cb.onchange = () => cb.parentElement.classList.toggle('on', cb.checked);
+  });
+}
+
 function openSupModal(id) {
   editingSupId = id || null;
   const s = id ? supervisors.find(x => x.id === id) : null;
   document.getElementById('supModalTitle').textContent = s ? 'עריכת מנחה' : 'הוספת מנחה';
   document.getElementById('supName').value = s ? s.name : '';
   document.getElementById('supMax').value = s ? s.maxPerQuarter : 10;
-  const boxes = document.getElementById('supHouses');
-  boxes.innerHTML = HOUSES.map(h => {
-    const on = s && (s.houses || []).indexOf(h.id) >= 0;
-    return '<label class="' + (on ? 'on' : '') + '"><input type="checkbox" value="' +
-      h.id + '"' + (on ? ' checked' : '') + '/>' + esc(h.name) + '</label>';
-  }).join('');
-  boxes.querySelectorAll('input').forEach(cb => {
-    cb.onchange = () => cb.parentElement.classList.toggle('on', cb.checked);
+  checkboxRow(document.getElementById('supHouses'),
+    HOUSES.map(h => ({ id: h.id, name: h.name })),
+    hid => !!(s && (s.houses || []).indexOf(hid) >= 0));
+  checkboxRow(document.getElementById('supCaps'), CAPS, cid => {
+    if (!s) return cid !== 'deliversRefresher';
+    if (cid === 'deliversGroup') return L.deliversGroup(s);
+    if (cid === 'deliversIndividual') return L.deliversIndividual(s);
+    return L.deliversRefresher(s);
   });
+  const roles = s ? L.supervisorRoles(s) : L.ROLES.slice();
+  checkboxRow(document.getElementById('supRoles'),
+    L.ROLES.map(r => ({ id: r, name: ROLE_LABEL_PLURAL[r] })),
+    rid => roles.indexOf(rid) >= 0);
   document.getElementById('supOverlay').classList.add('open');
 }
 
@@ -762,13 +955,22 @@ async function saveSupervisor() {
   const maxPerQuarter = Number(document.getElementById('supMax').value);
   const houses = Array.from(
     document.querySelectorAll('#supHouses input:checked')).map(cb => cb.value);
+  const caps = Array.from(
+    document.querySelectorAll('#supCaps input:checked')).map(cb => cb.value);
+  const roles = Array.from(
+    document.querySelectorAll('#supRoles input:checked')).map(cb => cb.value);
   if (!name) { toast('יש להזין שם'); return; }
   if (!houses.length) { toast('יש לבחור לפחות בית אחד'); return; }
+  if (!roles.length) { toast('יש לבחור לפחות תפקיד אחד'); return; }
   if (!Number.isInteger(maxPerQuarter) || maxPerQuarter < 1) { toast('מקסימום לא תקין'); return; }
   const existing = editingSupId ? supervisors.find(x => x.id === editingSupId) : null;
   const supervisor = {
     name, houses, maxPerQuarter,
     active: existing ? existing.active !== false : true,
+    deliversGroup: caps.indexOf('deliversGroup') >= 0,
+    deliversIndividual: caps.indexOf('deliversIndividual') >= 0,
+    deliversRefresher: caps.indexOf('deliversRefresher') >= 0,
+    roles,
   };
   closeOverlays();
   try {

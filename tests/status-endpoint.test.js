@@ -172,6 +172,40 @@ test('feed: a done row with a malformed completed date is skipped, not emitted',
   assert.deepStrictEqual(body.guides, []);
 });
 
+test('feed: a done GROUP session counts for every name on its attendance list', () => {
+  const ctx = loadCtx(PROPS);
+  ctx.readHadrachotSafe = () => [
+    { id: 'h1', guideName: '', house: '', supervisorId: 's1',
+      quarter: '2026-Q3', scheduledDate: '2026-08-10', completedDate: '2026-08-10',
+      status: 'done', createdAt: '', type: 'group', cluster: 'kesaria',
+      attendance: ['דנה לוי', 'יואב כהן'] },
+    { id: 'h2', guideName: 'דנה לוי', house: 'ramot', supervisorId: 's1',
+      quarter: '2026-Q2', scheduledDate: '2026-05-01', completedDate: '2026-05-03',
+      status: 'done', createdAt: '', type: 'individual', cluster: '', attendance: [] },
+    { id: 'h3', guideName: '', house: '', supervisorId: 's1',
+      quarter: '2026-Q3', scheduledDate: '2026-08-20', completedDate: '',
+      status: 'planned', createdAt: '', type: 'group', cluster: 'raanana',
+      attendance: ['רות אשר'] }, // planned — attendance never counts
+  ];
+  const body = callFeed(ctx, SECRET);
+  assert.strictEqual(body._status, 200);
+  const byName = {};
+  body.guides.forEach(g => { byName[g.name] = g; });
+  // דנה לוי: earliest across her individual row and the group session.
+  assert.strictEqual(byName['דנה לוי'].firstCompletedDate, '2026-05-03');
+  // יואב covered ONLY via group attendance.
+  assert.strictEqual(byName['יואב כהן'].firstCompletedDate, '2026-08-10');
+  // The planned group row contributes nothing.
+  assert.strictEqual(byName['רות אשר'], undefined);
+  assert.strictEqual(body.guides.length, 2);
+  // No group field leaks through the feed.
+  body.guides.forEach(g => {
+    assert.strictEqual(g.cluster, undefined);
+    assert.strictEqual(g.attendance, undefined);
+    assert.strictEqual(g.type, undefined);
+  });
+});
+
 test('feed: shape matches the staffing parser contract — guides array, firstHadrachaDone === true', () => {
   const ctx = loadCtx(PROPS);
   seedReader(ctx);
