@@ -133,6 +133,7 @@ function doPost(e) {
       case 'setSupervisorActive': return setSupervisorActive(body);
       case 'addHadracha':         return addHadracha(body);
       case 'addHadrachotBatch':   return addHadrachotBatch(body);
+      case 'baselineBatch':       return baselineBatch(body);
       case 'updateHadracha':      return updateHadracha(body);
       case 'setAttendance':       return setAttendance(body);
       case 'completeHadracha':    return completeHadracha(body);
@@ -681,6 +682,88 @@ function addHadrachotBatch(body) {
 
 function normName_(name) {
   return String(name === undefined || name === null ? '' : name).trim().replace(/\s+/g, ' ');
+}
+
+// ---------- the one-time baseline bulk action — סמן הכל כבוצע היום ----------
+
+// 'YYYY-MM-DD' → 'YYYY-Qn' for the legacy quarter column.
+function quarterOfDate_(d) {
+  const month = Number(String(d).slice(5, 7));
+  return String(d).slice(0, 4) + '-Q' + (Math.floor((month - 1) / 3) + 1);
+}
+
+// Mirrors validateBaselineItem in lib/validate.js: a COMPLETED session
+// created directly. Group items carry a cluster + attending guides;
+// individual/refresher items carry one person. No supervisor.
+function validateBaselineItem_(it) {
+  if (!it || typeof it !== 'object') throw httpError(400, 'item required');
+  const type = String(it.type === undefined || it.type === null ? '' : it.type).trim();
+  if (SESSION_TYPES.indexOf(type) < 0) throw httpError(400, 'unknown type');
+  if (type === 'group') {
+    const cluster = String(it.cluster === undefined || it.cluster === null ? '' : it.cluster).trim();
+    if (!isCluster(cluster)) throw httpError(400, 'unknown cluster');
+    if (!Array.isArray(it.attendance) || !it.attendance.length) throw httpError(400, 'attendance required');
+    if (it.attendance.length > ATTENDANCE_MAX) throw httpError(400, 'too many attendance entries');
+    const attendance = [];
+    it.attendance.forEach(function (n) {
+      const name = String(n === undefined || n === null ? '' : n)
+        .replace(/,/g, ' ').trim().replace(/\s+/g, ' ').slice(0, NAME_MAX);
+      if (!name) throw httpError(400, 'bad attendance name');
+      if (attendance.indexOf(name) < 0) attendance.push(name);
+    });
+    return { type: type, cluster: cluster, attendance: attendance, guideName: '', house: '' };
+  }
+  const guideName = requiredString_(it.guideName, 'guideName', NAME_MAX);
+  if (!isHouse(it.house)) throw httpError(400, 'unknown house');
+  return { type: type, cluster: '', attendance: [], guideName: guideName, house: it.house };
+}
+
+function baselineKey_(v) {
+  return v.type === 'group' ? 'g|' + v.cluster : 'i|' + v.type + '|' + normName_(v.guideName);
+}
+
+// One backend action for the whole list: every item becomes a DONE row
+// dated completedDate (scheduled and completed the same day), setting a
+// clean tracking baseline. Rows are plain completed history — the open-
+// planned constraint does not apply, and existing planned rows are left
+// untouched.
+function baselineBatch(body) {
+  const completedDate = requiredDate_(body.completedDate, 'completedDate');
+  if (!Array.isArray(body.items) || !body.items.length) throw httpError(400, 'items required');
+  if (body.items.length > BATCH_MAX) throw httpError(400, 'too many items');
+  const seen = {};
+  const items = body.items.map(function (it) {
+    const v = validateBaselineItem_(it);
+    const key = baselineKey_(v);
+    if (seen[key]) throw httpError(400, 'duplicate baseline entry in request');
+    seen[key] = true;
+    return v;
+  });
+  const quarter = quarterOfDate_(completedDate);
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const sh = sheetByName(HADRACHOT_TAB);
+    const added = items.map(function (v) {
+      const id = newId('h');
+      const createdAt = new Date().toISOString();
+      // Column order MUST match HEADERS_HADRACHOT.
+      sh.appendRow([
+        id, v.guideName, v.house, '', quarter,
+        completedDate, completedDate, 'done', createdAt,
+        v.type, v.cluster, v.attendance.join(','),
+      ]);
+      return {
+        id: id, guideName: v.guideName, house: v.house, supervisorId: '',
+        quarter: quarter, scheduledDate: completedDate, completedDate: completedDate,
+        status: 'done', createdAt: createdAt,
+        type: v.type, cluster: v.cluster, attendance: v.attendance,
+      };
+    });
+    return { ok: true, count: added.length, added: added };
+  } finally {
+    lock.releaseLock();
+  }
 }
 
 // Manual override per row: reassign supervisor, reschedule, or fix the

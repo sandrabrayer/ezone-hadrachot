@@ -104,6 +104,10 @@ body{
 .btn.primary:disabled{opacity:.5;cursor:default}
 .btn.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--ink-soft)}
 .btn.ghost:hover{color:var(--ink);background:var(--bg-elevated)}
+/* Secondary action ON THE GOLD PAGE — deliberately not gold, so an admin
+   one-off is never mistaken for a routine action. */
+.btn.subtle{background:transparent;border:1px solid var(--card-edge);color:var(--muted-page)}
+.btn.subtle:hover{color:var(--ink-page);border-color:var(--ink-page)}
 .btn.small{padding:7px 12px;font-size:12px;border-radius:9px}
 .btn.done{background:var(--success);color:#0B2415}
 .btn.danger-ghost{background:transparent;border:1px solid var(--line-strong);color:var(--muted)}
@@ -248,6 +252,7 @@ body{
         <span class="pill firstmonth" id="firstMonthPill" style="display:none"></span>
         <span class="pill bad" id="overduePill" style="display:none"></span>
         <span class="grow"></span>
+        <button class="btn subtle" id="baselineBtn">סמן הכל כבוצע היום</button>
         <button class="btn primary" id="scheduleBtn">שבץ הדרכות</button>
       </div>
       <div id="boardContent" class="loading">טוען נתונים…</div>
@@ -290,6 +295,23 @@ body{
     <div class="gsub" id="scheduleUnassigned" style="color:var(--danger-on-card)"></div>
     <div class="actions">
       <button class="btn primary" id="scheduleConfirm">אישור שיבוץ</button>
+      <button class="btn ghost" data-close>ביטול</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Baseline modal — the one-time admin bulk action ===== -->
+<div class="overlay" id="baselineOverlay">
+  <div class="modal">
+    <h3>סימון כל האיחורים כבוצעו היום</h3>
+    <div class="gsub" style="margin-bottom:10px">
+      פעולה חד פעמית לקביעת נקודת פתיחה נקייה למעקב.
+      כל מי שמופיע כעת באיחור כולל רענון באיחור יירשם כמי שהשלים הדרכה היום,
+      ותאריך היעד הבא של כולם יחושב מהיום.
+    </div>
+    <div class="gsub" id="baselineSummary" style="margin-bottom:14px;color:var(--ink)"></div>
+    <div class="actions">
+      <button class="btn primary" id="baselineConfirm">אישור וסימון</button>
       <button class="btn ghost" data-close>ביטול</button>
     </div>
   </div>
@@ -881,6 +903,69 @@ async function confirmSchedule() {
   }
 }
 
+// ---- the one-time baseline action — סמן הכל כבוצע היום ----
+let pendingBaseline = null;
+
+// Every currently-overdue person becomes a COMPLETED record dated today,
+// on the track that applies to them: clustered guides fold into one group
+// row per cluster with attendance, everyone else gets an individual row,
+// and a רענון באיחור adds a refresher row — possibly alongside a group one.
+function buildBaselineItems() {
+  const byCluster = {};
+  const items = [];
+  boardEntries().forEach(e => {
+    if (e.person.active === false) return;
+    if (e.st.overdue) {
+      if (e.role === 'guide' && e.st.cluster) {
+        (byCluster[e.st.cluster] = byCluster[e.st.cluster] || []).push(e.name);
+      } else {
+        items.push({ type: 'individual', guideName: e.name, house: e.person.house });
+      }
+    }
+    if (e.st.refresherOverdue) {
+      items.push({ type: 'refresher', guideName: e.name, house: e.person.house });
+    }
+  });
+  Object.keys(byCluster).forEach(c => {
+    items.push({ type: 'group', cluster: c, attendance: byCluster[c] });
+  });
+  return items;
+}
+
+function openBaseline() {
+  if (people === null) { toast('אין נתוני צוות — לא ניתן לסמן'); return; }
+  const items = buildBaselineItems();
+  if (!items.length) { toast('אין איחורים לסימון'); return; }
+  pendingBaseline = items;
+  const groups = items.filter(i => i.type === 'group');
+  const individuals = items.filter(i => i.type === 'individual').length;
+  const refreshers = items.filter(i => i.type === 'refresher').length;
+  const covered = groups.reduce((n, g) => n + g.attendance.length, 0) + individuals;
+  document.getElementById('baselineSummary').textContent =
+    'אנשי צוות באיחור שיסומנו: ' + covered +
+    (groups.length ? ' · מפגשים קבוצתיים שייווצרו: ' + groups.length : '') +
+    (refreshers ? ' · רענונים שיסומנו: ' + refreshers : '');
+  document.getElementById('baselineOverlay').classList.add('open');
+}
+
+async function confirmBaseline() {
+  const items = pendingBaseline || [];
+  pendingBaseline = null;
+  closeOverlays();
+  if (!items.length) return;
+  try {
+    const resp = await action({
+      action: 'baselineBatch',
+      completedDate: todayStr(),
+      items,
+    });
+    toast('נקודת הפתיחה נקבעה — נוצרו ' + resp.count + ' רשומות');
+    await refreshData();
+  } catch (e) {
+    toast('שגיאה: ' + e.message);
+  }
+}
+
 // ---- supervisors screen ----
 function renderSupervisors() {
   const el = document.getElementById('supList');
@@ -1033,6 +1118,8 @@ document.getElementById('pinInput').addEventListener('keydown', e => {
 document.getElementById('logoutBtn').onclick = logout;
 document.getElementById('scheduleBtn').onclick = openSchedule;
 document.getElementById('scheduleConfirm').onclick = confirmSchedule;
+document.getElementById('baselineBtn').onclick = openBaseline;
+document.getElementById('baselineConfirm').onclick = confirmBaseline;
 document.getElementById('completeConfirm').onclick = confirmComplete;
 document.getElementById('addSupBtn').onclick = () => openSupModal(null);
 document.getElementById('supSave').onclick = saveSupervisor;

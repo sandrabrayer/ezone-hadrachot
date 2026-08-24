@@ -1,5 +1,33 @@
 # Changelog — E-ZONE Hadrachot
 
+## 1.1.3 — 2026-08-24 — one-time baseline bulk action
+
+New admin action סמן הכל כבוצע היום for initializing the tracking baseline
+after adopting the per-role cadence model.
+
+- **Button** in the board header, styled as a subtle outlined secondary
+  action — deliberately not gold, so a one-off admin action is never
+  mistaken for the routine שבץ הדרכות. Opens a confirmation modal stating
+  in Hebrew, without parentheses, that this is a one-time action marking
+  every currently-overdue person as having completed a supervision today,
+  used to set a clean starting baseline — with a breakdown of what will be
+  created.
+- **On confirm**: every person currently overdue — רענון באיחור included —
+  becomes a COMPLETED record dated today on the track that applies to
+  them: clustered guides fold into ONE group row per cluster with the
+  overdue guides as attendance, everyone else gets an individual row, and
+  overdue refreshers add a refresher row. Baseline rows carry no
+  supervisor.
+- **One backend action** — `baselineBatch` — accepts the whole list in a
+  single request: `completedDate` plus items, validated in
+  `lib/validate.js` AND re-validated in `Code.gs` (type whitelist, house /
+  cluster / attendance checks, per-track dedupe, `BATCH_MAX` cap, field
+  whitelisting). Session required like every `/api` route.
+- After completion the board refreshes: the overdue section empties and
+  everyone's next due date is computed from today — 7 or 14 days per role,
+  3 months for refreshers — verified end-to-end in headless Chromium and
+  pinned in the scheduler tests.
+
 ## 1.1.2 — 2026-08-24 — two-tone gold and brown theme
 
 Frontend-only restyle, round 2 — no logic, markup structure, RTL or test
