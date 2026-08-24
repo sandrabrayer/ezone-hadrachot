@@ -8,28 +8,29 @@
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@500;700;900&display=swap');
 
 *{box-sizing:border-box;margin:0;padding:0}
-/* Warm brown base, red and orange accents, gold highlights for primary
-   actions and active states. Dark theme, RTL. */
+/* Warm READABLE brown base — several steps lighter than near-black — with
+   red and orange accents and gold highlights for primary actions and active
+   states. Dark theme, RTL. */
 :root{
-  --bg:#1B120A;
-  --bg-surface:#261A10;
-  --bg-elevated:#332417;
-  --ink:#F7F0E5;
-  --ink-soft:#DFCFBA;
-  --muted:#AB937B;
-  --line:rgba(255,230,200,0.09);
-  --line-strong:rgba(255,230,200,0.18);
-  --gold-1:#F2CB68;
-  --gold-2:#D9992B;
-  --gold-soft:rgba(217,153,43,0.14);
+  --bg:#3B2B1D;
+  --bg-surface:#4A3728;
+  --bg-elevated:#5C4735;
+  --ink:#FFF9F0;
+  --ink-soft:#F1E3D1;
+  --muted:#D2BAA1;
+  --line:rgba(255,238,214,0.16);
+  --line-strong:rgba(255,238,214,0.30);
+  --gold-1:#F6D07A;
+  --gold-2:#E0A139;
+  --gold-soft:rgba(224,161,57,0.22);
   --gold-deep:#3A2604;
-  --orange:#E5813C;
-  --orange-soft:rgba(229,129,60,0.16);
-  --success:#6CC08D;
-  --success-soft:rgba(108,192,141,0.13);
-  --warning:#E5813C;
-  --danger:#DA4A3E;
-  --danger-soft:rgba(218,74,62,0.15);
+  --orange:#F0904B;
+  --orange-soft:rgba(240,144,75,0.24);
+  --success:#82D2A0;
+  --success-soft:rgba(130,210,160,0.20);
+  --warning:#F0904B;
+  --danger:#F26D5E;
+  --danger-soft:rgba(242,109,94,0.20);
   --grad:linear-gradient(90deg,var(--gold-1),var(--gold-2));
 }
 body{
@@ -45,7 +46,7 @@ body{
 
 /* Topbar */
 .topbar{
-  background:#150D06;
+  background:#2F2213;
   padding:16px 0;
   position:sticky;top:0;z-index:50;
   border-bottom:1px solid var(--line);
@@ -163,7 +164,7 @@ body{
 .supcaps{display:flex;gap:6px;flex-wrap:wrap}
 
 /* Forms and modal */
-.overlay{position:fixed;inset:0;background:rgba(21,13,6,.75);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:8vh 16px}
+.overlay{position:fixed;inset:0;background:rgba(43,30,18,.72);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:8vh 16px}
 .overlay.open{display:flex}
 .modal{background:var(--bg-surface);border:1px solid var(--line-strong);border-radius:16px;padding:24px;width:100%;max-width:460px;max-height:80vh;overflow:auto}
 .modal h3{font-size:17px;margin-bottom:16px}
@@ -1028,11 +1029,29 @@ document.querySelectorAll('.overlay').forEach(o => {
 });
 
 // ---- boot ----
-if (token) enterApp();
-else {
+// AUTH GATE: nothing but the PIN screen may appear before a VERIFIED
+// session. A stored token is validated against GET /api/session first, and
+// only a 200 opens the app — enterApp is the single place any view is shown
+// or any data fetch starts. A missing, stale or forged token keeps the PIN
+// screen up and clears the stored value; a network failure counts as
+// unauthenticated (fail-closed), the PIN submit retries it.
+async function boot() {
   document.getElementById('loginView').style.display = 'block';
+  if (token) {
+    let valid = false;
+    try {
+      const resp = await fetch('/api/session', {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      valid = resp.ok;
+    } catch (e) { valid = false; }
+    if (valid) { enterApp(); return; }
+    token = '';
+    localStorage.removeItem('hadrachot_token');
+  }
   document.getElementById('pinInput').focus();
 }
+boot();
 </script>
 </body>
 </html>

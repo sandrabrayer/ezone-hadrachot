@@ -51,10 +51,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// ---- health ----
-app.get('/api/health', (req, res) => {
-  res.json({ ok: true, t: Date.now() });
-});
+// NOTE: there is deliberately NO unauthenticated /api endpoint besides
+// /api/login. The old /api/health was removed — Railway's healthcheck now
+// hits GET / (static index) instead; see railway.json. Session validity is
+// checked via GET /api/session below, BEHIND auth.
 
 // ---- login (rate-limited) ----
 const loginAttempts = new Map();
@@ -96,6 +96,14 @@ function requireAuth(req, res, next) {
   }
   next();
 }
+
+// ---- session check ----
+// The frontend's boot gate: with a stored token, the SPA calls this BEFORE
+// rendering any view or fetching any data. Invalid/expired token → 401 via
+// requireAuth → the PIN screen stays up. Returns no data on purpose.
+app.get('/api/session', requireAuth, (req, res) => {
+  res.json({ ok: true });
+});
 
 // ---- Apps Script proxy (the hadrachot backend) ----
 async function callAppsScript(method, body) {

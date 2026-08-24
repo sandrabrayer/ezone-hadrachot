@@ -74,16 +74,32 @@ test('login: wrong pin is 401, right pin issues a token', async () => {
   assert.ok(token && token.includes('.'));
 });
 
-test('auth FAIL-CLOSED: /api/data, /api/guides and /api/action all 401 without a token', async () => {
+test('auth FAIL-CLOSED: every /api route except /api/login is 401 without a session — the board data endpoints included', async () => {
+  // /api/data and /api/guides are what the board renders from; /api/session
+  // is the boot gate; /api/action is every write. None may answer without a
+  // valid token — no token, a garbage token, and a forged token all 401.
   for (const [method, path, body] of [
-    ['GET', '/api/data'], ['GET', '/api/guides'],
+    ['GET', '/api/data'], ['GET', '/api/guides'], ['GET', '/api/session'],
     ['POST', '/api/action', { action: 'cancelHadracha', id: 'h1' }],
   ]) {
     const noToken = await http(method, path, body);
     assert.equal(noToken.status, 401, method + ' ' + path);
     const badToken = await http(method, path, body, 'garbage.token');
     assert.equal(badToken.status, 401, method + ' ' + path + ' bad token');
+    const forged = await http(method, path, body, token.replace(/.$/, c => (c === 'a' ? 'b' : 'a')));
+    assert.equal(forged.status, 401, method + ' ' + path + ' forged token');
   }
+});
+
+test('/api/session: 200 { ok } with a valid session, no data beyond that', async () => {
+  const resp = await http('GET', '/api/session', undefined, token);
+  assert.equal(resp.status, 200);
+  assert.deepEqual(resp.body, { ok: true });
+});
+
+test('there is no unauthenticated /api/health — unknown unauthenticated /api paths never return 200', async () => {
+  const resp = await http('GET', '/api/health');
+  assert.equal(resp.status, 404); // the route was removed; the JSON 404 fallback answers
 });
 
 test('/api/data proxies the Apps Script GET with the shared secret', async () => {
