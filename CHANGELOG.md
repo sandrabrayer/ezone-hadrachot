@@ -1,5 +1,37 @@
 # Changelog — E-ZONE Hadrachot
 
+## 1.1.1 — 2026-08-24 — auth gate fixed, lighter warm theme
+
+### Auth gate — PIN screen first, always
+
+The board could render its shell and start data fetches before any PIN was
+entered when a stored token existed, valid or not. Now nothing but the PIN
+screen appears before a VERIFIED session:
+
+- On page load the SPA shows ONLY the login view. A stored token is
+  validated against the new `GET /api/session` (behind auth, returns
+  `{ ok }` and nothing else) BEFORE any view is shown or any data fetch
+  starts; `enterApp` is the single place either happens. A missing, stale
+  or forged token keeps the PIN screen up and clears the stored value; a
+  network failure counts as unauthenticated — fail-closed, the PIN submit
+  retries.
+- Server side, every `/api` route except `POST /api/login` now rejects
+  unauthenticated requests: the unauthenticated `/api/health` was removed
+  (Railway's healthcheck now hits `GET /` — see railway.json) and
+  `/api/session` sits behind the same `requireAuth` as the data routes.
+- Tests: the fail-closed suite now drives `/api/data`, `/api/guides`,
+  `/api/session` and `/api/action` with no token, a garbage token AND a
+  forged token — all must 401; plus `/api/session` happy path and a guard
+  that no unauthenticated `/api/health` came back.
+
+### Theme — several steps lighter
+
+The warm-brown palette was near-black; surfaces lightened noticeably
+(background #3B2B1D, cards #4A3728, elevated #5C4735) with stronger text
+contrast (ink #FFF9F0, brighter muted/soft tones and borders). Red and
+orange accents and the gold primary buttons and active states kept; RTL
+and all functionality unchanged.
+
 ## 1.1.0 — 2026-08-24 — per-role cadences, clusters, refreshers, warm theme
 
 The supervision model reworked from quarterly-per-guide to per-role
