@@ -4,7 +4,7 @@
    Auth is enforced via a shared secret passed in every request —
    the URL alone is NOT authorization.
 
-   This backend serves RAW rows only. All compliance / overdue /
+   This backend serves RAW rows only. All cadence / compliance /
    scheduling logic lives in the frontend (lib/scheduler.js).
    NO salary or money data exists anywhere in this app.
 
@@ -22,20 +22,33 @@
    All header arrays are APPEND-ONLY and position-mapped: readers and
    writers map columns by POSITION, so a mid-array insert would shift
    every stored value one column right and corrupt every row. New
-   columns go on the END only, never before an existing one.
+   columns go on the END only, never before an existing one. When a
+   header row is shorter than its array (pre-migration sheet), the
+   missing header cells are appended in place — existing rows keep
+   working, their new cells read as blank and get safe defaults.
 
    Supervisors tab:
-     id | name | houses | max_per_quarter | active | created_at
-     `houses` is a comma-separated list of house ids the supervisor
-     covers. `active` is 'true'/'false'.
+     id | name | houses | max_per_quarter | active | created_at |
+     delivers_group | delivers_individual | delivers_refresher | roles
+     `houses` is a comma-separated list of house ids. `roles` is a
+     comma-separated list of feed roles the supervisor can supervise
+     (blank = all). The three delivers_* flags are 'true'/'false';
+     blank legacy cells default to group=true individual=true
+     refresher=false. `active` is 'true'/'false'. A default refresher
+     instructor named אולגה is seeded once (Settings key seed.olga).
 
    Hadrachot tab:
      id | guide_name | house | supervisor_id | quarter |
-     scheduled_date | completed_date | status | created_at
-     `quarter` is 'YYYY-Qn'. `status` is a raw ASCII value:
-     planned / done / cancelled — the UI shows מתוכנן / בוצע / בוטל.
-     Guides are NOT stored in this app — guide_name is the join key
-     to the staffing app's roster feed.
+     scheduled_date | completed_date | status | created_at |
+     type | cluster | attendance
+     `type` is group / individual / refresher (blank legacy cells read
+     as individual). A GROUP session has no single guide: guide_name
+     and house are blank, `cluster` is kesaria / raanana, and
+     `attendance` is a comma-separated list of guide names who
+     attended. `status` is planned / done / cancelled — the UI shows
+     מתוכנן / בוצע / בוטל. `quarter` ('YYYY-Qn') is legacy
+     bookkeeping kept for position mapping. People are NOT stored in
+     this app — guide_name joins to the staffing roster feed.
 
    Settings tab:
      key | value
@@ -48,15 +61,24 @@ const HOUSE_IDS = [
   'hq',
 ];
 
+// Must mirror lib/validate.js / lib/scheduler.js.
+const CLUSTER_IDS = ['kesaria', 'raanana'];
+const ROLES = ['guide', 'social_worker', 'house_manager', 'coordinator'];
+const SESSION_TYPES = ['group', 'individual', 'refresher'];
+
 const SUPERVISORS_TAB = 'Supervisors';
 const HADRACHOT_TAB = 'Hadrachot';
 const SETTINGS_TAB = 'Settings';
 
 // APPEND-ONLY (see the header note above).
-const HEADERS_SUPERVISORS = ['id', 'name', 'houses', 'max_per_quarter', 'active', 'created_at'];
+const HEADERS_SUPERVISORS = [
+  'id', 'name', 'houses', 'max_per_quarter', 'active', 'created_at',
+  'delivers_group', 'delivers_individual', 'delivers_refresher', 'roles',
+];
 const HEADERS_HADRACHOT = [
   'id', 'guide_name', 'house', 'supervisor_id', 'quarter',
   'scheduled_date', 'completed_date', 'status', 'created_at',
+  'type', 'cluster', 'attendance',
 ];
 const HEADERS_SETTINGS = ['key', 'value'];
 
@@ -70,6 +92,11 @@ const NOTE_MAX = 500;
 const MAX_PER_QUARTER_MIN = 1;
 const MAX_PER_QUARTER_MAX = 500;
 const BATCH_MAX = 500;
+const ATTENDANCE_MAX = 200;
+
+// The default refresher instructor seeded once into Supervisors.
+const SEED_OLGA_KEY = 'seed.olga';
+const SEED_OLGA_NAME = 'אולגה';
 
 // The hadrachot tracking spreadsheet. Not a secret (access is governed by
 // the Google account, not by knowing the id); the SHEET_ID Script Property
@@ -79,7 +106,7 @@ const DEFAULT_SHEET_ID = '1CbAEhM2PVX7f9l-zmbjhBJBrtNcOAz_8UTRAJ1PLPG8';
 // ---------- entry points ----------
 
 function doGet(e) {
-  // Read-only first-hadracha status feed for the staffing app. Routed
+  // Read-only first-supervision status feed for the staffing app. Routed
   // BEFORE the main SHARED_SECRET gate and authorized ONLY by
   // HADRACHOT_STATUS_SECRET (see the "Status feed" section below).
   if (e && e.parameter && e.parameter.action === 'getFirstHadrachaStatus') {
@@ -87,6 +114,7 @@ function doGet(e) {
   }
   return handle(e, function () {
     ensureTabs_();
+    ensureSeedData_();
     return {
       supervisors: readSupervisorsSafe(),
       hadrachot: readHadrachotSafe(),
@@ -106,6 +134,7 @@ function doPost(e) {
       case 'addHadracha':         return addHadracha(body);
       case 'addHadrachotBatch':   return addHadrachotBatch(body);
       case 'updateHadracha':      return updateHadracha(body);
+      case 'setAttendance':       return setAttendance(body);
       case 'completeHadracha':    return completeHadracha(body);
       case 'reopenHadracha':      return reopenHadracha(body);
       case 'cancelHadracha':      return cancelHadracha(body);
@@ -179,9 +208,11 @@ function sheetByName(name) {
   return sh;
 }
 
-// Creates any missing tab with its headers. First-run bootstrap — takes the
-// lock only when something is actually missing, so the steady-state read
-// path stays lock-free.
+// Creates any missing tab with its headers, and APPENDS any header cells a
+// pre-migration tab is missing (columns are only ever added at the END, so
+// extending the header row is safe — existing rows keep their positions).
+// Takes the lock only when something is actually missing, so the
+// steady-state read path stays lock-free.
 function ensureTabs_() {
   const book = ss();
   const wanted = [
@@ -189,17 +220,55 @@ function ensureTabs_() {
     { name: HADRACHOT_TAB, headers: HEADERS_HADRACHOT },
     { name: SETTINGS_TAB, headers: HEADERS_SETTINGS },
   ];
-  const missing = wanted.filter(function (w) { return !book.getSheetByName(w.name); });
-  if (!missing.length) return;
+  const needsWork = wanted.filter(function (w) {
+    const sh = book.getSheetByName(w.name);
+    return !sh || sh.getLastColumn() < w.headers.length;
+  });
+  if (!needsWork.length) return;
   const lock = LockService.getScriptLock();
   lock.waitLock(15000);
   try {
-    missing.forEach(function (w) {
-      if (book.getSheetByName(w.name)) return; // raced — another call made it
-      const sh = book.insertSheet(w.name);
-      sh.getRange(1, 1, 1, w.headers.length).setValues([w.headers]);
-      sh.setFrozenRows(1);
+    needsWork.forEach(function (w) {
+      let sh = book.getSheetByName(w.name);
+      if (!sh) {
+        sh = book.insertSheet(w.name);
+        sh.getRange(1, 1, 1, w.headers.length).setValues([w.headers]);
+        sh.setFrozenRows(1);
+        return;
+      }
+      const width = sh.getLastColumn();
+      if (width >= w.headers.length) return; // raced — another call extended it
+      const missing = w.headers.slice(width);
+      sh.getRange(1, width + 1, 1, missing.length).setValues([missing]);
     });
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// One-time seed of the default refresher instructor אולגה, recorded in
+// Settings so the check stays cheap and never re-runs after the row is
+// edited or deactivated. Idempotent under races (re-checked under lock).
+function ensureSeedData_() {
+  if (readSettingsSafe()[SEED_OLGA_KEY] === 'done') return;
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const settings = sheetByName(SETTINGS_TAB);
+    if (findRow(settings, 0, SEED_OLGA_KEY) >= 0) return; // raced
+    const exists = readSupervisorsSafe().some(function (s) {
+      return normName_(s.name) === SEED_OLGA_NAME;
+    });
+    if (!exists) {
+      const sh = sheetByName(SUPERVISORS_TAB);
+      // Column order MUST match HEADERS_SUPERVISORS. Refreshers only:
+      // no group sessions, no regular individual supervisions, guides only.
+      sh.appendRow([
+        newId('s'), SEED_OLGA_NAME, HOUSE_IDS.join(','), 100, 'true',
+        new Date().toISOString(), 'false', 'false', 'true', 'guide',
+      ]);
+    }
+    settings.appendRow([SEED_OLGA_KEY, 'done']);
   } finally {
     lock.releaseLock();
   }
@@ -250,6 +319,7 @@ function formatQuarterCell(cell) {
 // ---------- validators (mirror lib/validate.js) ----------
 
 function isHouse(id) { return HOUSE_IDS.indexOf(id) >= 0; }
+function isCluster(id) { return CLUSTER_IDS.indexOf(id) >= 0; }
 
 function requiredString_(v, label, max) {
   const s = String(v === undefined || v === null ? '' : v)
@@ -295,6 +365,11 @@ function requiredBool_(v, label) {
   throw httpError(400, 'bad ' + label);
 }
 
+function optionalBool_(v, label, dflt) {
+  if (v === undefined) return dflt;
+  return requiredBool_(v, label);
+}
+
 function validateSupervisor(s) {
   if (!s || typeof s !== 'object') throw httpError(400, 'supervisor required');
   const name = requiredString_(s.name, 'name', NAME_MAX);
@@ -311,25 +386,73 @@ function validateSupervisor(s) {
     throw httpError(400, 'bad maxPerQuarter');
   }
   const active = s.active === undefined ? true : requiredBool_(s.active, 'active');
-  return { name: name, houses: houses, maxPerQuarter: maxPerQuarter, active: active };
+  const deliversGroup = optionalBool_(s.deliversGroup, 'deliversGroup', true);
+  const deliversIndividual = optionalBool_(s.deliversIndividual, 'deliversIndividual', true);
+  const deliversRefresher = optionalBool_(s.deliversRefresher, 'deliversRefresher', false);
+  let roles;
+  if (s.roles === undefined) {
+    roles = ROLES.slice();
+  } else {
+    if (!Array.isArray(s.roles) || !s.roles.length) throw httpError(400, 'roles required');
+    roles = [];
+    s.roles.forEach(function (r) {
+      const v = String(r === undefined || r === null ? '' : r).trim();
+      if (ROLES.indexOf(v) < 0) throw httpError(400, 'unknown role');
+      if (roles.indexOf(v) < 0) roles.push(v);
+    });
+  }
+  return {
+    name: name, houses: houses, maxPerQuarter: maxPerQuarter, active: active,
+    deliversGroup: deliversGroup, deliversIndividual: deliversIndividual,
+    deliversRefresher: deliversRefresher, roles: roles,
+  };
 }
 
-// A NEW hadracha row — status is forced to 'planned' (completion only ever
-// happens through completeHadracha, which stamps the date).
+// A NEW session row — status is forced to 'planned' (completion only ever
+// happens through completeHadracha, which stamps the date). A GROUP session
+// belongs to a cluster and has no single guide; individual/refresher
+// sessions belong to one person.
 function validateNewHadracha(h) {
   if (!h || typeof h !== 'object') throw httpError(400, 'hadracha required');
-  const guideName = requiredString_(h.guideName, 'guideName', NAME_MAX);
-  if (!isHouse(h.house)) throw httpError(400, 'unknown house');
+  const type = h.type === undefined ? 'individual' : String(h.type).trim();
+  if (SESSION_TYPES.indexOf(type) < 0) throw httpError(400, 'unknown type');
   const supervisorId = optionalString_(h.supervisorId, ID_MAX);
   const quarter = requiredQuarter_(h.quarter, 'quarter');
   const scheduledDate = optionalDate_(h.scheduledDate, 'scheduledDate');
+
+  if (type === 'group') {
+    const cluster = String(h.cluster === undefined || h.cluster === null ? '' : h.cluster).trim();
+    if (!isCluster(cluster)) throw httpError(400, 'unknown cluster');
+    return {
+      guideName: '', house: '', supervisorId: supervisorId,
+      quarter: quarter, scheduledDate: scheduledDate,
+      status: 'planned', type: type, cluster: cluster,
+    };
+  }
+
+  const guideName = requiredString_(h.guideName, 'guideName', NAME_MAX);
+  if (!isHouse(h.house)) throw httpError(400, 'unknown house');
   return {
     guideName: guideName, house: h.house, supervisorId: supervisorId,
-    quarter: quarter, scheduledDate: scheduledDate, status: 'planned',
+    quarter: quarter, scheduledDate: scheduledDate,
+    status: 'planned', type: type, cluster: '',
   };
 }
 
 // ---------- readers (raw rows, position-mapped) ----------
+
+// 'true'/'false' cells; blank legacy cells take the given default.
+function boolCell_(cell, dflt) {
+  const s = String(cell === undefined || cell === null ? '' : cell).trim();
+  if (s === 'true') return true;
+  if (s === 'false') return false;
+  return dflt;
+}
+
+function listCell_(cell) {
+  return String(cell === undefined || cell === null ? '' : cell)
+    .split(',').map(function (v) { return v.trim(); }).filter(Boolean);
+}
 
 function readSupervisorsSafe() {
   const sh = ss().getSheetByName(SUPERVISORS_TAB);
@@ -337,12 +460,25 @@ function readSupervisorsSafe() {
     return {
       id: String(r[0]),
       name: String(r[1] || ''),
-      houses: String(r[2] || '').split(',').map(function (h) { return h.trim(); }).filter(Boolean),
+      houses: listCell_(r[2]),
       maxPerQuarter: Number(r[3]) || 0,
       active: String(r[4]) === 'true',
       createdAt: cellToIso(r[5]),
+      // Legacy rows: blank flags default to group+individual true,
+      // refresher false; blank roles = all roles (frontend semantics).
+      deliversGroup: boolCell_(r[6], true),
+      deliversIndividual: boolCell_(r[7], true),
+      deliversRefresher: boolCell_(r[8], false),
+      roles: listCell_(r[9]),
     };
   });
+}
+
+// Blank/unknown type cells read as 'individual' — every pre-rework row was
+// an individual supervision.
+function normalizeType_(v) {
+  const s = String(v === undefined || v === null ? '' : v).trim();
+  return SESSION_TYPES.indexOf(s) >= 0 ? s : 'individual';
 }
 
 function readHadrachotSafe() {
@@ -358,6 +494,9 @@ function readHadrachotSafe() {
       completedDate: formatDateCell(r[6]),
       status: normalizeStatus_(r[7]),
       createdAt: cellToIso(r[8]),
+      type: normalizeType_(r[9]),
+      cluster: String(r[10] === undefined || r[10] === null ? '' : r[10]).trim(),
+      attendance: listCell_(r[11]),
     };
   });
 }
@@ -389,10 +528,16 @@ function addSupervisor(body) {
     const id = newId('s');
     const createdAt = new Date().toISOString();
     // Column order MUST match HEADERS_SUPERVISORS.
-    sh.appendRow([id, s.name, s.houses.join(','), s.maxPerQuarter, String(s.active), createdAt]);
+    sh.appendRow([
+      id, s.name, s.houses.join(','), s.maxPerQuarter, String(s.active), createdAt,
+      String(s.deliversGroup), String(s.deliversIndividual),
+      String(s.deliversRefresher), s.roles.join(','),
+    ]);
     return { ok: true, supervisor: {
       id: id, name: s.name, houses: s.houses,
       maxPerQuarter: s.maxPerQuarter, active: s.active, createdAt: createdAt,
+      deliversGroup: s.deliversGroup, deliversIndividual: s.deliversIndividual,
+      deliversRefresher: s.deliversRefresher, roles: s.roles,
     } };
   } finally {
     lock.releaseLock();
@@ -411,9 +556,16 @@ function updateSupervisor(body) {
     sh.getRange(row, 2, 1, 4).setValues([[
       s.name, s.houses.join(','), s.maxPerQuarter, String(s.active),
     ]]);
+    // cols 7-10 = delivers_group | delivers_individual | delivers_refresher | roles
+    sh.getRange(row, 7, 1, 4).setValues([[
+      String(s.deliversGroup), String(s.deliversIndividual),
+      String(s.deliversRefresher), s.roles.join(','),
+    ]]);
     return { ok: true, supervisor: {
       id: id, name: s.name, houses: s.houses,
       maxPerQuarter: s.maxPerQuarter, active: s.active,
+      deliversGroup: s.deliversGroup, deliversIndividual: s.deliversIndividual,
+      deliversRefresher: s.deliversRefresher, roles: s.roles,
     } };
   } finally {
     lock.releaseLock();
@@ -448,8 +600,32 @@ function appendHadrachaRow_(sh, h) {
   sh.appendRow([
     id, h.guideName, h.house, h.supervisorId, h.quarter,
     h.scheduledDate, '', h.status, createdAt,
+    h.type, h.cluster, '',
   ]);
-  return Object.assign({ id: id, completedDate: '', createdAt: createdAt }, h);
+  return Object.assign({ id: id, completedDate: '', attendance: [], createdAt: createdAt }, h);
+}
+
+// One OPEN planned session at a time per track: per cluster for group
+// sessions, per person+type for individual/refresher. Completed history
+// accumulates freely — cadence needs many rows per person.
+function openPlannedKey_(h) {
+  return h.type === 'group'
+    ? 'g|' + h.cluster
+    : 'i|' + h.type + '|' + normName_(h.guideName);
+}
+
+function assertNoOpenPlanned_(h, excludeId) {
+  const key = openPlannedKey_(h);
+  const dup = readHadrachotSafe().find(function (x) {
+    return x.status === 'planned'
+      && openPlannedKey_(x) === key
+      && (!excludeId || x.id !== excludeId);
+  });
+  if (dup) {
+    throw httpError(409, h.type === 'group'
+      ? 'cluster already has a planned group session'
+      : 'person already has a planned session of this type');
+  }
 }
 
 function addHadracha(body) {
@@ -458,7 +634,7 @@ function addHadracha(body) {
   lock.waitLock(15000);
   try {
     const sh = sheetByName(HADRACHOT_TAB);
-    assertNoLiveRow_(h.guideName, h.quarter, null);
+    assertNoOpenPlanned_(h, null);
     return { ok: true, hadracha: appendHadrachaRow_(sh, h) };
   } finally {
     lock.releaseLock();
@@ -466,17 +642,17 @@ function addHadracha(body) {
 }
 
 // The auto-scheduler's write: the frontend computes the assignments (all
-// scheduling logic is client-side) and posts them as one batch. Guides that
-// already have a live row this quarter are SKIPPED, not duplicated — the
-// scheduler may run on stale data.
+// scheduling logic is client-side) and posts them as one batch. Items whose
+// track already has an open planned session are SKIPPED, not duplicated —
+// the scheduler may run on stale data.
 function addHadrachotBatch(body) {
   if (!Array.isArray(body.items) || !body.items.length) throw httpError(400, 'items required');
   if (body.items.length > BATCH_MAX) throw httpError(400, 'too many items');
   const seen = {};
   const items = body.items.map(function (it) {
     const v = validateNewHadracha(it);
-    const key = v.guideName + '|' + v.quarter;
-    if (seen[key]) throw httpError(400, 'duplicate guide+quarter in request');
+    const key = openPlannedKey_(v);
+    if (seen[key]) throw httpError(400, 'duplicate session in request');
     seen[key] = true;
     return v;
   });
@@ -484,17 +660,17 @@ function addHadrachotBatch(body) {
   lock.waitLock(15000);
   try {
     const sh = sheetByName(HADRACHOT_TAB);
-    const live = {};
+    const open = {};
     readHadrachotSafe().forEach(function (h) {
-      if (h.status === 'cancelled') return;
-      live[normName_(h.guideName) + '|' + h.quarter] = true;
+      if (h.status !== 'planned') return;
+      open[openPlannedKey_(h)] = true;
     });
     const added = [];
     const skipped = [];
     items.forEach(function (h) {
-      const key = normName_(h.guideName) + '|' + h.quarter;
-      if (live[key]) { skipped.push(h.guideName); return; }
-      live[key] = true;
+      const key = openPlannedKey_(h);
+      if (open[key]) { skipped.push(h.type === 'group' ? h.cluster : h.guideName); return; }
+      open[key] = true;
       added.push(appendHadrachaRow_(sh, h));
     });
     return { ok: true, added: added, count: added.length, skipped: skipped };
@@ -507,21 +683,9 @@ function normName_(name) {
   return String(name === undefined || name === null ? '' : name).trim().replace(/\s+/g, ' ');
 }
 
-// One live (non-cancelled) row per guide per quarter. excludeId skips the row
-// being edited.
-function assertNoLiveRow_(guideName, quarter, excludeId) {
-  const dup = readHadrachotSafe().find(function (h) {
-    return h.status !== 'cancelled'
-      && h.quarter === quarter
-      && normName_(h.guideName) === normName_(guideName)
-      && (!excludeId || h.id !== excludeId);
-  });
-  if (dup) throw httpError(409, 'guide already has a hadracha this quarter');
-}
-
 // Manual override per row: reassign supervisor, reschedule, or fix the
 // house. Only keys PRESENT in the payload are written; identity fields
-// (guide, quarter) and status fields never change here.
+// (guide, type, cluster) and status fields never change here.
 function updateHadracha(body) {
   const id = requireBodyId(body);
   const h = body.hadracha;
@@ -553,6 +717,39 @@ function updateHadracha(body) {
     if (patch.scheduledDate !== undefined) sh.getRange(row, 6).setValue(patch.scheduledDate);
     if (patch.house !== undefined) sh.getRange(row, 3).setValue(patch.house);
     return { ok: true, id: id, hadracha: patch };
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+// Attendance on a GROUP session — marked per guide, stored comma-separated.
+// Allowed on planned and done rows (fix-ups after completion are fine);
+// never on cancelled rows.
+function setAttendance(body) {
+  const id = requireBodyId(body);
+  if (!Array.isArray(body.attendance)) throw httpError(400, 'attendance required');
+  if (body.attendance.length > ATTENDANCE_MAX) throw httpError(400, 'too many attendance entries');
+  const names = [];
+  body.attendance.forEach(function (n) {
+    const name = String(n === undefined || n === null ? '' : n)
+      .replace(/,/g, ' ').trim().replace(/\s+/g, ' ').slice(0, NAME_MAX);
+    if (!name) throw httpError(400, 'bad attendance name');
+    if (names.indexOf(name) < 0) names.push(name);
+  });
+  const lock = LockService.getScriptLock();
+  lock.waitLock(15000);
+  try {
+    const sh = sheetByName(HADRACHOT_TAB);
+    const row = findRow(sh, 0, id);
+    if (row < 0) throw httpError(404, 'hadracha not found');
+    if (normalizeType_(sh.getRange(row, 10).getValue()) !== 'group') {
+      throw httpError(409, 'attendance applies to group sessions only');
+    }
+    if (normalizeStatus_(sh.getRange(row, 8).getValue()) === 'cancelled') {
+      throw httpError(409, 'cannot set attendance on a cancelled session');
+    }
+    sh.getRange(row, 12).setValue(names.join(',')); // col 12 = attendance
+    return { ok: true, id: id, attendance: names };
   } finally {
     lock.releaseLock();
   }
@@ -615,7 +812,8 @@ function cancelHadracha(body) {
 }
 
 // Hard delete is allowed for PLANNED rows only (scheduler mistakes).
-// Completed history is protected — it feeds getFirstHadrachaStatus.
+// Completed history is protected — it feeds getFirstHadrachaStatus and
+// every cadence computation.
 function deleteHadracha(body) {
   const id = requireBodyId(body);
   const lock = LockService.getScriptLock();
@@ -664,13 +862,16 @@ function setSetting(body) {
    SHARED_SECRET does NOT unlock this feed (and this feed's secret
    does not unlock doGet/doPost).
 
-   Payload — one entry per guide who has COMPLETED a first hadracha:
-     name               — the guide's display name (the cross-app key)
+   Payload — one entry per person who has COMPLETED a first
+   supervision (individual/refresher by name, or a group session
+   whose attendance lists them):
+     name               — the person's display name (the cross-app key)
      firstHadrachaDone  — always true (the staffing parser filters on it)
      firstCompletedDate — 'YYYY-MM-DD', the earliest completed date
 
    HARD RULE: every other field is stripped. No house, supervisor,
-   quarter, schedule, status, id, or created_at ever leaves this feed.
+   quarter, schedule, status, type, cluster, id, or created_at ever
+   leaves this feed.
    ============================================================ */
 
 const HADRACHOT_STATUS_SECRET_PROP = 'HADRACHOT_STATUS_SECRET';
@@ -694,18 +895,26 @@ function handleStatusRead_(e) {
   }
 }
 
-// One entry per guide name with at least one DONE hadracha carrying a
-// completed date; the date reported is the earliest one. Reads guide_name /
-// completed_date / status ONLY.
+// One entry per person with at least one DONE session carrying a completed
+// date; the date reported is the earliest one. Group sessions count for
+// every name on their attendance list. Reads guide_name / completed_date /
+// status / type / attendance ONLY.
 function computeFirstHadrachaStatus_() {
   const firstByName = {};
+  function record(name, date) {
+    const n = normName_(name);
+    if (!n) return;
+    if (!firstByName[n] || date < firstByName[n]) firstByName[n] = date;
+  }
   readHadrachotSafe().forEach(function (h) {
     if (h.status !== 'done') return;
     const date = String(h.completedDate || '').trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return;
-    const name = normName_(h.guideName);
-    if (!name) return;
-    if (!firstByName[name] || date < firstByName[name]) firstByName[name] = date;
+    if (h.type === 'group') {
+      (h.attendance || []).forEach(function (name) { record(name, date); });
+    } else {
+      record(h.guideName, date);
+    }
   });
   const guides = Object.keys(firstByName).map(function (name) {
     return { name: name, firstHadrachaDone: true, firstCompletedDate: firstByName[name] };
