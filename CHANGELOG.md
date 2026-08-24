@@ -1,5 +1,32 @@
 # Changelog — E-ZONE Hadrachot
 
+## 1.1.2 — 2026-08-24 — two-tone gold and brown theme
+
+Frontend-only restyle, round 2 — no logic, markup structure, RTL or test
+changes.
+
+- **Gold page background**: the full page background moved from light brown
+  to a soft warm gold (#E3C078) — muted, not yellow-bright.
+- **Brown cards on gold**: cards, list rows, the login card, modals and
+  pills keep the warm light-brown surface (#4A3728), now reading as brown
+  cards sitting on gold, with a darker warm card edge so they separate
+  cleanly from the page.
+- **Alerts stand out**: the deep saturated red (#C1271A) now FILLS the
+  באיחור and רענון באיחור badges, the overdue pill and the error banner,
+  with near-white text inside; the overdue section title uses a darker red
+  (#8F1207) that contrasts hard against the gold page. Orange stays for
+  warnings and first-month flags, gold for primary actions.
+- **Primary buttons on gold**: the gold gradient darkened (#EDB44A →
+  #C8821E) and gained a deep-gold border and subtle shadow so שבץ הדרכות
+  and friends still pop against the golden page.
+- **Two-way text contrast**: dark warm ink (#3A2712, muted #5D451F) on the
+  gold background — page title, section headers, loading text; light ink
+  (#FFF9F0, muted #D2BAA1) inside brown cards, modals and the topbar.
+  Inputs inside cards sit on a darker field brown (#3A2A1C) so light text
+  stays readable.
+- Board and login screenshots of the new theme committed under
+  docs/screenshots.
+
 ## 1.1.1 — 2026-08-24 — auth gate fixed, lighter warm theme
 
 ### Auth gate — PIN screen first, always
