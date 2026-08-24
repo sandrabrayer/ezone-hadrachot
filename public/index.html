@@ -252,7 +252,41 @@ body{
   box-shadow:0 12px 40px rgba(0,0,0,0.4);
 }
 .toast.show{display:block}
+.toast.error{background:var(--danger);border-color:transparent;color:var(--danger-ink)}
 .loading{color:var(--muted);text-align:center;padding:56px 20px;font-size:14px}
+
+/* ---- action feedback ---- */
+/* Press: every button dips and darkens under the pointer. */
+button:active:not(:disabled){transform:scale(.96)}
+.btn:active:not(:disabled),.login button:active:not(:disabled){filter:brightness(.85)}
+.btn.primary:active:not(:disabled),.btn.done:active:not(:disabled){filter:brightness(.9)}
+.attend label:active,.houseboxes label:active{transform:scale(.96)}
+/* In-flight: the triggering control is disabled and carries a spinner. */
+.spinner{
+  display:inline-block;width:12px;height:12px;flex:0 0 auto;
+  border:2px solid currentColor;border-top-color:transparent;border-radius:50%;
+  animation:spin .7s linear infinite;vertical-align:-2px;margin-inline-end:7px;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
+.btn.busy{pointer-events:none;opacity:.75}
+.attend label.busy{pointer-events:none;opacity:.75}
+select.busy-control,input.busy-control{opacity:.55;pointer-events:none}
+/* Long operations: a subtle loading veil over the board until refresh. */
+.veil{
+  position:fixed;inset:0;background:rgba(11,18,32,.45);
+  -webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);
+  display:none;align-items:center;justify-content:center;z-index:80;
+}
+.veil.show{display:flex}
+.veil .spin{
+  width:40px;height:40px;border-radius:50%;
+  border:3px solid var(--line-strong);border-top-color:var(--accent-2);
+  animation:spin .9s linear infinite;
+}
+/* Result: the affected row flashes once after the refresh lands. */
+@keyframes rowFlash{0%{background:var(--accent-soft)}100%{background:transparent}}
+.row.flash,.gsession.flash{animation:rowFlash 1.8s ease-out}
+
 @media (max-width:640px){
   .gname{min-width:100%}
   .rowactions{width:100%;justify-content:flex-start}
@@ -391,6 +425,7 @@ body{
   </div>
 </div>
 
+<div class="veil" id="boardVeil"><div class="spin"></div></div>
 <div class="toast" id="toast"></div>
 
 <script src="/lib/scheduler.js"></script>
@@ -458,6 +493,64 @@ function action(payload) {
   return api('/api/action', { method: 'POST', body: JSON.stringify(payload) });
 }
 
+// ---- action feedback plumbing ----
+// ONE write at a time: while a request is in flight every further trigger
+// is ignored, and the triggering control is disabled with an inline
+// spinner — no double-submit is possible.
+let inFlight = false;
+
+// Disable a control and attach a spinner; returns the restore function.
+// Buttons get the spinner inside (optionally swapping the label, e.g.
+// מעבד…); attendance checkboxes mark their pill label; selects and date
+// inputs get a spinner beside them.
+function setBusy(el, label) {
+  if (!el) return () => {};
+  if (el.tagName === 'BUTTON') {
+    const orig = el.innerHTML;
+    el.disabled = true;
+    el.classList.add('busy');
+    el.innerHTML = '<span class="spinner"></span>' + (label ? esc(label) : orig);
+    return () => {
+      el.disabled = false;
+      el.classList.remove('busy');
+      el.innerHTML = orig;
+    };
+  }
+  if (el.type === 'checkbox') {
+    const wrap = el.parentElement;
+    el.disabled = true;
+    const sp = document.createElement('span');
+    sp.className = 'spinner';
+    wrap.insertBefore(sp, wrap.firstChild);
+    wrap.classList.add('busy');
+    return () => { el.disabled = false; wrap.classList.remove('busy'); sp.remove(); };
+  }
+  el.disabled = true;
+  el.classList.add('busy-control');
+  const sp = document.createElement('span');
+  sp.className = 'spinner';
+  el.insertAdjacentElement('afterend', sp);
+  return () => { el.disabled = false; el.classList.remove('busy-control'); sp.remove(); };
+}
+
+function showVeil() { document.getElementById('boardVeil').classList.add('show'); }
+function hideVeil() { document.getElementById('boardVeil').classList.remove('show'); }
+
+// After a refresh, flash the row or group card the action touched so the
+// update is visible.
+function flashAfterRefresh(person, sessionId) {
+  if (person) {
+    document.querySelectorAll('#boardContent .row').forEach(r => {
+      if (r.dataset.person === person) r.classList.add('flash');
+    });
+  }
+  if (sessionId) {
+    document.querySelectorAll('#boardContent .gsession').forEach(g => {
+      if (g.dataset.session === sessionId) g.classList.add('flash');
+    });
+  }
+}
+
 // ---- auth ----
 function logout() {
   token = '';
@@ -469,9 +562,12 @@ function logout() {
 }
 
 async function login() {
+  if (inFlight) return;
   const pin = document.getElementById('pinInput').value;
   const errEl = document.getElementById('loginErr');
   errEl.textContent = '';
+  inFlight = true;
+  const release = setBusy(document.getElementById('loginBtn'));
   try {
     const resp = await fetch('/api/login', {
       method: 'POST',
@@ -485,6 +581,9 @@ async function login() {
     enterApp();
   } catch (e) {
     errEl.textContent = 'שגיאת תקשורת. נסי שוב.';
+  } finally {
+    release();
+    inFlight = false;
   }
 }
 
@@ -700,7 +799,8 @@ function personRow(entry, inAlert) {
     }
   }
 
-  return '<div class="row' + (st.overdue || st.refresherOverdue ? ' overdue' : '') + '">' +
+  return '<div class="row' + (st.overdue || st.refresherOverdue ? ' overdue' : '') +
+    '" data-person="' + esc(entry.name) + '">' +
     '<span class="gname">' + esc(entry.name) +
     ' <span class="gsub">' + esc(HOUSE_NAME[p.house] || p.house) + '</span></span>' +
     badges + due + details +
@@ -783,22 +883,22 @@ function bindBoardEvents() {
     el.onclick = () => openComplete({ direct: { name: el.dataset.name, house: el.dataset.house } });
   });
   root.querySelectorAll('[data-act=reopen]').forEach(el => {
-    el.onclick = () => doAction({ action: 'reopenHadracha', id: el.dataset.id }, 'הסימון בוטל');
+    el.onclick = () => doAction({ action: 'reopenHadracha', id: el.dataset.id }, 'הסימון בוטל', el);
   });
   root.querySelectorAll('[data-act=cancel]').forEach(el => {
-    el.onclick = () => doAction({ action: 'cancelHadracha', id: el.dataset.id }, 'ההדרכה בוטלה');
+    el.onclick = () => doAction({ action: 'cancelHadracha', id: el.dataset.id }, 'ההדרכה בוטלה', el);
   });
   root.querySelectorAll('[data-act=supervisor]').forEach(el => {
     el.onchange = () => doAction({
       action: 'updateHadracha', id: el.dataset.id,
       hadracha: { supervisorId: el.value },
-    }, 'המנחה עודכן');
+    }, 'המנחה עודכן בהצלחה', el);
   });
   root.querySelectorAll('[data-act=reschedule]').forEach(el => {
     el.onchange = () => doAction({
       action: 'updateHadracha', id: el.dataset.id,
       hadracha: { scheduledDate: el.value },
-    }, 'התאריך עודכן');
+    }, 'התאריך עודכן בהצלחה', el);
   });
   root.querySelectorAll('[data-act=assign]').forEach(el => {
     el.onchange = () => {
@@ -813,7 +913,7 @@ function bindBoardEvents() {
           scheduledDate: todayStr(),
           type: 'individual',
         },
-      }, 'ההדרכה שובצה');
+      }, 'ההדרכה שובצה בהצלחה', el);
     };
   });
   // Attendance — marked per guide on a group session.
@@ -823,18 +923,31 @@ function bindBoardEvents() {
       cb.parentElement.classList.toggle('on', cb.checked);
       const names = Array.from(card.querySelectorAll('.attend input:checked')).map(x => x.value);
       doAction({ action: 'setAttendance', id: card.dataset.session, attendance: names },
-        'הנוכחות עודכנה');
+        'הנוכחות עודכנה בהצלחה', cb);
     };
   });
 }
 
-async function doAction(payload, okMsg) {
+// Every inline write goes through here: the triggering control is disabled
+// with a spinner until the request resolves; success shows a toast and
+// re-renders with the affected row flashed; failure shows a red toast and
+// re-enables the control.
+async function doAction(payload, okMsg, el) {
+  if (inFlight) return;
+  inFlight = true;
+  const release = setBusy(el);
+  const row = el && el.closest ? el.closest('.row') : null;
+  const card = el && el.closest ? el.closest('.gsession') : null;
   try {
     await action(payload);
     toast(okMsg);
     await refreshData();
+    flashAfterRefresh(row ? row.dataset.person : '', card ? card.dataset.session : '');
   } catch (e) {
-    toast('שגיאה: ' + e.message);
+    toastError('שגיאה: ' + e.message);
+  } finally {
+    release();
+    inFlight = false;
   }
 }
 
@@ -849,9 +962,11 @@ function openComplete(ctx) {
 
 async function confirmComplete() {
   const date = document.getElementById('completeDate').value;
-  if (!L.isValidDate(date)) { toast('יש לבחור תאריך'); return; }
+  if (!L.isValidDate(date)) { toastError('יש לבחור תאריך'); return; }
+  if (inFlight) return;
+  inFlight = true;
+  const release = setBusy(document.getElementById('completeConfirm'));
   const ctx = completingCtx;
-  closeOverlays();
   try {
     if (ctx.hadrachaId) {
       await action({ action: 'completeHadracha', id: ctx.hadrachaId, completedDate: date });
@@ -871,9 +986,14 @@ async function confirmComplete() {
       await action({ action: 'completeHadracha', id: created.hadracha.id, completedDate: date });
     }
     toast('ההדרכה סומנה כבוצעה');
+    closeOverlays();
     await refreshData();
   } catch (e) {
-    toast('שגיאה: ' + e.message);
+    // The modal stays open so the completion can be retried.
+    toastError('שגיאה: ' + e.message);
+  } finally {
+    release();
+    inFlight = false;
   }
 }
 
@@ -935,14 +1055,23 @@ async function confirmSchedule() {
     type: a.type,
     cluster: a.cluster,
   }));
-  closeOverlays();
-  if (!items.length) return;
+  if (!items.length) { closeOverlays(); return; }
+  if (inFlight) return;
+  inFlight = true;
+  const release = setBusy(document.getElementById('scheduleConfirm'), 'מעבד…');
+  showVeil();
   try {
     const resp = await action({ action: 'addHadrachotBatch', items });
-    toast('שובצו ' + resp.count + ' הדרכות');
+    toast('שובצו ' + resp.count + ' הדרכות בהצלחה');
+    closeOverlays();
     await refreshData();
   } catch (e) {
-    toast('שגיאה: ' + e.message);
+    // The preview stays open so the run can be retried.
+    toastError('שגיאה: ' + e.message);
+  } finally {
+    hideVeil();
+    release();
+    inFlight = false;
   }
 }
 
@@ -993,19 +1122,28 @@ function openBaseline() {
 
 async function confirmBaseline() {
   const items = pendingBaseline || [];
-  pendingBaseline = null;
-  closeOverlays();
-  if (!items.length) return;
+  if (!items.length) { closeOverlays(); return; }
+  if (inFlight) return;
+  inFlight = true;
+  const release = setBusy(document.getElementById('baselineConfirm'), 'מעבד…');
+  showVeil();
   try {
     const resp = await action({
       action: 'baselineBatch',
       completedDate: todayStr(),
       items,
     });
-    toast('נקודת הפתיחה נקבעה — נוצרו ' + resp.count + ' רשומות');
+    pendingBaseline = null;
+    toast('נקודת הפתיחה נקבעה בהצלחה — נוצרו ' + resp.count + ' רשומות');
+    closeOverlays();
     await refreshData();
   } catch (e) {
-    toast('שגיאה: ' + e.message);
+    // The confirmation stays open so the run can be retried.
+    toastError('שגיאה: ' + e.message);
+  } finally {
+    hideVeil();
+    release();
+    inFlight = false;
   }
 }
 
@@ -1049,7 +1187,7 @@ function renderSupervisors() {
       action: 'setSupervisorActive',
       id: b.dataset.supToggle,
       active: b.dataset.active === 'true',
-    }, 'עודכן');
+    }, 'עודכן בהצלחה', b);
   });
 }
 
@@ -1101,10 +1239,10 @@ async function saveSupervisor() {
     document.querySelectorAll('#supCaps input:checked')).map(cb => cb.value);
   const roles = Array.from(
     document.querySelectorAll('#supRoles input:checked')).map(cb => cb.value);
-  if (!name) { toast('יש להזין שם'); return; }
-  if (!houses.length) { toast('יש לבחור לפחות בית אחד'); return; }
-  if (!roles.length) { toast('יש לבחור לפחות תפקיד אחד'); return; }
-  if (!Number.isInteger(maxPerQuarter) || maxPerQuarter < 1) { toast('מקסימום לא תקין'); return; }
+  if (!name) { toastError('יש להזין שם'); return; }
+  if (!houses.length) { toastError('יש לבחור לפחות בית אחד'); return; }
+  if (!roles.length) { toastError('יש לבחור לפחות תפקיד אחד'); return; }
+  if (!Number.isInteger(maxPerQuarter) || maxPerQuarter < 1) { toastError('מקסימום לא תקין'); return; }
   const existing = editingSupId ? supervisors.find(x => x.id === editingSupId) : null;
   const supervisor = {
     name, houses, maxPerQuarter,
@@ -1114,17 +1252,24 @@ async function saveSupervisor() {
     deliversRefresher: caps.indexOf('deliversRefresher') >= 0,
     roles,
   };
-  closeOverlays();
+  if (inFlight) return;
+  inFlight = true;
+  const release = setBusy(document.getElementById('supSave'));
   try {
     if (editingSupId) {
       await action({ action: 'updateSupervisor', id: editingSupId, supervisor });
     } else {
       await action({ action: 'addSupervisor', supervisor });
     }
-    toast('נשמר');
+    toast('נשמר בהצלחה');
+    closeOverlays();
     await refreshData();
   } catch (e) {
-    toast('שגיאה: ' + e.message);
+    // The dialog stays open so the save can be retried.
+    toastError('שגיאה: ' + e.message);
+  } finally {
+    release();
+    inFlight = false;
   }
 }
 
@@ -1134,13 +1279,16 @@ function closeOverlays() {
 }
 
 let toastTimer = null;
-function toast(msg) {
+function showToast(msg, isError) {
   const el = document.getElementById('toast');
   el.textContent = msg;
+  el.classList.toggle('error', !!isError);
   el.classList.add('show');
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => el.classList.remove('show'), 2600);
 }
+function toast(msg) { showToast(msg, false); }
+function toastError(msg) { showToast(msg, true); }
 
 function switchView(view) {
   currentView = view;

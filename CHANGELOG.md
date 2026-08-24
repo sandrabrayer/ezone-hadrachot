@@ -1,5 +1,33 @@
 # Changelog — E-ZONE Hadrachot
 
+## 1.1.5 — 2026-08-24 — visible feedback for every action
+
+Frontend only: every action now shows its state — pressed, in flight,
+succeeded, failed.
+
+- **Press feedback**: every button dips slightly and darkens on click;
+  attendance and checkbox pills scale down under the pointer.
+- **In-flight state**: every network-triggering control — בוצע, שבץ
+  הדרכות, סמן הכל כבוצע היום, כניסה, supervisor save and toggle,
+  attendance ticks, manual assignment and reschedule selects — is
+  disabled the instant it fires and carries a small inline spinner until
+  the request resolves. A single global in-flight guard means no
+  double-submit is possible anywhere.
+- **Result feedback**: success shows a brief Hebrew toast (נשמר בהצלחה
+  and friends) and the affected row flashes once after the refresh;
+  failure shows a red toast with a short message, re-enables the control,
+  and keeps the dialog open so the action can be retried.
+- **Long operations**: שבץ and the bulk baseline switch their confirm
+  button to מעבד… with the spinner and put a subtle blurred loading veil
+  over the board until the refresh completes.
+- RTL, the ecosystem theme and all functionality unchanged — 126 node
+  tests untouched and passing. New `scripts/ui-feedback-check.js` drives
+  the app in headless Chromium against a slow simulated backend and
+  asserts the spinners appear, double-clicks are swallowed — exactly one
+  request per action — the מעבד… label and veil show during the bulk
+  operations, and the failure path re-enables controls with a red toast.
+  Not part of `npm test`, which stays network-free.
+
 ## 1.1.4 — 2026-08-24 — ecosystem theme, larger person cards, E-ZONE wordmark
 
 Frontend-only, theme round 3: the gold-brown experiment is dropped
