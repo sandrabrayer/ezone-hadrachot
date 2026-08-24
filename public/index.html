@@ -8,36 +8,45 @@
 @import url('https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700;800&family=Frank+Ruhl+Libre:wght@500;700;900&display=swap');
 
 *{box-sizing:border-box;margin:0;padding:0}
-/* Warm READABLE brown base — several steps lighter than near-black — with
-   red and orange accents and gold highlights for primary actions and active
-   states. Dark theme, RTL. */
+/* Two-tone warm theme: a soft GOLD page background with warm-brown cards
+   sitting on it. Dark warm ink on gold, light ink on brown. Deep saturated
+   red for alerts, orange for warnings, gold for primary actions. RTL. */
 :root{
-  --bg:#3B2B1D;
-  --bg-surface:#4A3728;
+  --bg:#E3C078;              /* soft gold page background */
+  --bg-surface:#4A3728;      /* warm brown cards and rows */
   --bg-elevated:#5C4735;
-  --ink:#FFF9F0;
+  --field-bg:#3A2A1C;        /* inputs inside brown cards */
+  --ink:#FFF9F0;             /* text ON BROWN */
   --ink-soft:#F1E3D1;
-  --muted:#D2BAA1;
-  --line:rgba(255,238,214,0.16);
+  --muted:#D2BAA1;           /* secondary text ON BROWN */
+  --ink-page:#3A2712;        /* text ON GOLD */
+  --muted-page:#5D451F;      /* secondary text ON GOLD */
+  --line:rgba(255,238,214,0.16);        /* separators INSIDE cards */
   --line-strong:rgba(255,238,214,0.30);
-  --gold-1:#F6D07A;
-  --gold-2:#E0A139;
+  --card-edge:rgba(58,38,16,0.45);      /* card border against the gold page */
+  --gold-1:#EDB44A;          /* primary gradient — darkened to stand out on gold */
+  --gold-2:#C8821E;
+  --gold-border:#8F5F10;
   --gold-soft:rgba(224,161,57,0.22);
   --gold-deep:#3A2604;
+  --gold-page-text:#7A5306;  /* gold-family headings on the gold page */
   --orange:#F0904B;
   --orange-soft:rgba(240,144,75,0.24);
   --success:#82D2A0;
   --success-soft:rgba(130,210,160,0.20);
   --warning:#F0904B;
-  --danger:#F26D5E;
-  --danger-soft:rgba(242,109,94,0.20);
+  --danger:#C1271A;          /* deep saturated red — fills */
+  --danger-deep:#8F1207;     /* red text on the gold page */
+  --danger-ink:#FFF6F2;      /* near-white text inside red fills */
+  --danger-on-card:#FF9585;  /* red-family text on brown surfaces */
+  --danger-soft:rgba(193,39,26,0.28);   /* overdue row tint on brown */
   --grad:linear-gradient(90deg,var(--gold-1),var(--gold-2));
 }
 body{
   font-family:'Heebo',sans-serif;
   direction:rtl;
   background:var(--bg);
-  color:var(--ink);
+  color:var(--ink-page);
   min-height:100vh;
   -webkit-font-smoothing:antialiased;
   padding-bottom:60px;
@@ -47,9 +56,10 @@ body{
 /* Topbar */
 .topbar{
   background:#2F2213;
+  color:var(--ink);
   padding:16px 0;
   position:sticky;top:0;z-index:50;
-  border-bottom:1px solid var(--line);
+  border-bottom:1px solid rgba(58,38,16,.5);
 }
 .topbar .wrap{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
 .brand-name{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:18px;white-space:nowrap}
@@ -64,49 +74,50 @@ body{
 .logout{background:transparent;border:none;color:var(--muted);padding:8px 12px;border-radius:999px;font-size:12px;font-weight:600;font-family:inherit;cursor:pointer}
 .logout:hover{color:var(--ink);background:var(--bg-elevated)}
 
-/* Login */
-.login{max-width:360px;margin:12vh auto 0;padding:34px 28px;background:var(--bg-surface);border:1px solid var(--line);border-radius:18px;text-align:center}
+/* Login — a brown card on the gold page */
+.login{max-width:360px;margin:12vh auto 0;padding:34px 28px;background:var(--bg-surface);color:var(--ink);border:1px solid var(--card-edge);border-radius:18px;text-align:center}
 .login h1{font-family:'Frank Ruhl Libre',serif;font-size:24px;margin-bottom:6px}
 .login p{color:var(--muted);font-size:13px;margin-bottom:22px}
 .login input{
   width:100%;padding:13px;border-radius:12px;border:1px solid var(--line-strong);
-  background:var(--bg);color:var(--ink);font-size:22px;text-align:center;letter-spacing:8px;
+  background:var(--field-bg);color:var(--ink);font-size:22px;text-align:center;letter-spacing:8px;
   font-family:inherit;direction:ltr;
 }
 .login input:focus{outline:none;border-color:var(--gold-2)}
-.login button{width:100%;margin-top:14px;padding:13px;border-radius:12px;border:none;background:var(--grad);color:var(--gold-deep);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
-.login .err{color:var(--danger);font-size:13px;margin-top:12px;min-height:18px}
+.login button{width:100%;margin-top:14px;padding:13px;border-radius:12px;border:1px solid var(--gold-border);background:var(--grad);color:var(--gold-deep);font-size:15px;font-weight:700;font-family:inherit;cursor:pointer}
+.login .err{color:var(--danger-on-card);font-size:13px;margin-top:12px;min-height:18px}
 
-/* Summary bar */
+/* Summary bar — dark ink on the gold page, brown chips */
 .summary{display:flex;gap:12px;flex-wrap:wrap;align-items:center;margin:24px 0 18px}
 .summary .qtitle{font-family:'Frank Ruhl Libre',serif;font-size:22px;font-weight:700}
-.pill{background:var(--bg-surface);border:1px solid var(--line);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--ink-soft)}
+.pill{background:var(--bg-surface);border:1px solid var(--card-edge);border-radius:999px;padding:7px 14px;font-size:13px;color:var(--ink-soft)}
 .pill b{color:var(--ink)}
-.pill.bad{border-color:var(--danger);color:var(--danger)}
+.pill.bad{background:var(--danger);border-color:var(--danger-deep);color:var(--danger-ink)}
+.pill.bad b{color:var(--danger-ink)}
 .pill.firstmonth{border-color:var(--orange);color:var(--orange)}
 .grow{flex:1}
 .btn{
   border:none;border-radius:12px;padding:11px 20px;font-size:14px;font-weight:700;
   font-family:inherit;cursor:pointer;transition:.15s;
 }
-.btn.primary{background:var(--grad);color:var(--gold-deep)}
+.btn.primary{background:var(--grad);color:var(--gold-deep);border:1px solid var(--gold-border);box-shadow:0 1px 3px rgba(58,38,4,.35)}
 .btn.primary:disabled{opacity:.5;cursor:default}
 .btn.ghost{background:transparent;border:1px solid var(--line-strong);color:var(--ink-soft)}
 .btn.ghost:hover{color:var(--ink);background:var(--bg-elevated)}
 .btn.small{padding:7px 12px;font-size:12px;border-radius:9px}
 .btn.done{background:var(--success);color:#0B2415}
 .btn.danger-ghost{background:transparent;border:1px solid var(--line-strong);color:var(--muted)}
-.btn.danger-ghost:hover{color:var(--danger);border-color:var(--danger)}
+.btn.danger-ghost:hover{color:var(--danger-on-card);border-color:var(--danger-on-card)}
 
-/* Sections */
+/* Sections — headings on gold, brown cards */
 .section{margin-bottom:26px}
-.section h2{font-size:15px;font-weight:700;color:var(--ink-soft);margin-bottom:10px;display:flex;align-items:center;gap:8px}
-.section h2 .count{color:var(--muted);font-weight:500;font-size:13px}
-.card{background:var(--bg-surface);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.section h2{font-size:15px;font-weight:700;color:var(--ink-page);margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.section h2 .count{color:var(--muted-page);font-weight:500;font-size:13px}
+.card{background:var(--bg-surface);color:var(--ink);border:1px solid var(--card-edge);border-radius:14px;overflow:hidden}
 .section.alert .card{border-color:var(--danger)}
-.section.alert h2{color:var(--danger)}
-.section.groups h2{color:var(--gold-1)}
-.section.groups .card{border-color:var(--gold-2)}
+.section.alert h2{color:var(--danger-deep)}
+.section.groups h2{color:var(--gold-page-text)}
+.section.groups .card{border-color:var(--gold-border)}
 
 /* People rows */
 .row{
@@ -122,14 +133,14 @@ body{
 .badge{font-size:11px;font-weight:700;border-radius:999px;padding:3px 10px;white-space:nowrap}
 .badge.role{background:var(--bg-elevated);color:var(--ink-soft)}
 .badge.new{background:var(--orange-soft);color:var(--orange)}
-.badge.overdue{background:var(--danger-soft);color:var(--danger)}
+.badge.overdue{background:var(--danger);color:var(--danger-ink)}
 .badge.refresher{background:var(--gold-soft);color:var(--gold-1)}
 .badge.planned{background:var(--bg-elevated);color:var(--ink-soft)}
 .badge.done{background:var(--success-soft);color:var(--success)}
 .badge.none{background:var(--bg-elevated);color:var(--muted)}
 .badge.inactive{background:var(--bg-elevated);color:var(--muted)}
 .row select,.row input[type=date]{
-  background:var(--bg);border:1px solid var(--line-strong);color:var(--ink);
+  background:var(--field-bg);border:1px solid var(--line-strong);color:var(--ink);
   border-radius:9px;padding:6px 8px;font-size:12px;font-family:inherit;
 }
 .row select:focus,.row input:focus{outline:none;border-color:var(--gold-2)}
@@ -149,10 +160,10 @@ body{
 .attend label.on{background:var(--gold-soft);border-color:var(--gold-2);color:var(--gold-1)}
 .attend input{display:none}
 
-/* Banner */
+/* Banner — sits directly on the gold page */
 .banner{border-radius:14px;padding:14px 18px;margin:18px 0;font-size:14px;border:1px solid}
-.banner.error{background:var(--danger-soft);border-color:var(--danger);color:var(--ink)}
-.banner.info{background:var(--gold-soft);border-color:var(--gold-2);color:var(--ink)}
+.banner.error{background:var(--danger);border-color:var(--danger-deep);color:var(--danger-ink)}
+.banner.info{background:var(--bg-surface);border-color:var(--gold-border);color:var(--ink)}
 
 /* Supervisors */
 .suptable{width:100%}
@@ -164,14 +175,14 @@ body{
 .supcaps{display:flex;gap:6px;flex-wrap:wrap}
 
 /* Forms and modal */
-.overlay{position:fixed;inset:0;background:rgba(43,30,18,.72);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:8vh 16px}
+.overlay{position:fixed;inset:0;background:rgba(46,32,16,.62);display:none;align-items:flex-start;justify-content:center;z-index:100;padding:8vh 16px}
 .overlay.open{display:flex}
-.modal{background:var(--bg-surface);border:1px solid var(--line-strong);border-radius:16px;padding:24px;width:100%;max-width:460px;max-height:80vh;overflow:auto}
+.modal{background:var(--bg-surface);color:var(--ink);border:1px solid var(--card-edge);border-radius:16px;padding:24px;width:100%;max-width:460px;max-height:80vh;overflow:auto}
 .modal h3{font-size:17px;margin-bottom:16px}
 .field{margin-bottom:14px}
 .field label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px;font-weight:600}
 .field input[type=text],.field input[type=number],.field input[type=date],.field select{
-  width:100%;background:var(--bg);border:1px solid var(--line-strong);color:var(--ink);
+  width:100%;background:var(--field-bg);border:1px solid var(--line-strong);color:var(--ink);
   border-radius:10px;padding:10px;font-size:14px;font-family:inherit;
 }
 .field input:focus,.field select:focus{outline:none;border-color:var(--gold-2)}
@@ -189,11 +200,13 @@ body{
 .preview-list .pmeta{color:var(--muted);font-size:12px}
 .toast{
   position:fixed;bottom:22px;right:50%;transform:translateX(50%);
-  background:var(--bg-elevated);border:1px solid var(--line-strong);color:var(--ink);
+  background:var(--bg-elevated);border:1px solid var(--card-edge);color:var(--ink);
   border-radius:12px;padding:12px 22px;font-size:14px;z-index:200;display:none;
 }
 .toast.show{display:block}
-.loading{color:var(--muted);text-align:center;padding:50px 0;font-size:14px}
+/* Loading text: dark on the gold page, light inside brown cards */
+.loading{color:var(--muted-page);text-align:center;padding:50px 0;font-size:14px}
+.card .loading{color:var(--muted)}
 @media (max-width:640px){
   .gname{min-width:100%}
   .rowactions{width:100%;justify-content:flex-start}
@@ -274,7 +287,7 @@ body{
     <h3>שיבוץ הדרכות</h3>
     <div class="gsub" id="scheduleSummary"></div>
     <div class="preview-list" id="schedulePreview"></div>
-    <div class="gsub" id="scheduleUnassigned" style="color:var(--danger)"></div>
+    <div class="gsub" id="scheduleUnassigned" style="color:var(--danger-on-card)"></div>
     <div class="actions">
       <button class="btn primary" id="scheduleConfirm">אישור שיבוץ</button>
       <button class="btn ghost" data-close>ביטול</button>
