@@ -222,6 +222,54 @@ test('one open planned session per track: same cluster twice → 409, same perso
   } });
 });
 
+// ---- the baseline bulk action ----
+
+test('baselineBatch: writes DONE rows dated the batch date for every track in one call', () => {
+  const ctx = loadCtx(legacyBook());
+  ctx.ensureTabs_();
+  const out = plain(ctx.baselineBatch({
+    completedDate: '2026-08-24',
+    items: [
+      { type: 'individual', guideName: 'עדי ברק', house: 'hq' },
+      { type: 'refresher', guideName: 'דנה לוי', house: 'ofroni' },
+      { type: 'group', cluster: 'kesaria', attendance: ['דנה לוי', 'יואב כהן'] },
+    ],
+  }));
+  assert.strictEqual(out.ok, true);
+  assert.strictEqual(out.count, 3);
+  const rows = plain(ctx.readHadrachotSafe());
+  const adi = rows.find(h => h.guideName === 'עדי ברק');
+  assert.strictEqual(adi.status, 'done');
+  assert.strictEqual(adi.type, 'individual');
+  assert.strictEqual(adi.completedDate, '2026-08-24');
+  assert.strictEqual(adi.scheduledDate, '2026-08-24');
+  assert.strictEqual(adi.quarter, '2026-Q3');
+  assert.strictEqual(adi.supervisorId, ''); // a baseline row has no supervisor
+  const ref = rows.find(h => h.type === 'refresher');
+  assert.strictEqual(ref.guideName, 'דנה לוי');
+  assert.strictEqual(ref.status, 'done');
+  const grp = rows.find(h => h.type === 'group');
+  assert.strictEqual(grp.cluster, 'kesaria');
+  assert.strictEqual(grp.status, 'done');
+  assert.deepStrictEqual(grp.attendance, ['דנה לוי', 'יואב כהן']);
+});
+
+test('baselineBatch: mirrors the validators — bad items and duplicates are rejected whole', () => {
+  const ctx = loadCtx(legacyBook());
+  ctx.ensureTabs_();
+  const before = plain(ctx.readHadrachotSafe()).length;
+  assert.throws(() => ctx.baselineBatch({ completedDate: 'today', items: [
+    { type: 'individual', guideName: 'עדי', house: 'hq' }] }), err => err.status === 400);
+  assert.throws(() => ctx.baselineBatch({ completedDate: '2026-08-24', items: [] }),
+    err => err.status === 400);
+  assert.throws(() => ctx.baselineBatch({ completedDate: '2026-08-24', items: [
+    { type: 'group', cluster: 'kesaria', attendance: [] }] }), err => err.status === 400);
+  assert.throws(() => ctx.baselineBatch({ completedDate: '2026-08-24', items: [
+    { type: 'individual', guideName: 'עדי', house: 'hq' },
+    { type: 'individual', guideName: 'עדי', house: 'hq' }] }), err => err.status === 400);
+  assert.strictEqual(plain(ctx.readHadrachotSafe()).length, before); // nothing written
+});
+
 // ---- the אולגה seed ----
 
 test('ensureSeedData_ seeds אולגה once as a refresher-only guide instructor', () => {

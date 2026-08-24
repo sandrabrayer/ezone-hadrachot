@@ -81,6 +81,8 @@ test('auth FAIL-CLOSED: every /api route except /api/login is 401 without a sess
   for (const [method, path, body] of [
     ['GET', '/api/data'], ['GET', '/api/guides'], ['GET', '/api/session'],
     ['POST', '/api/action', { action: 'cancelHadracha', id: 'h1' }],
+    ['POST', '/api/action', { action: 'baselineBatch', completedDate: '2026-08-24',
+      items: [{ type: 'individual', guideName: 'עדי', house: 'hq' }] }],
   ]) {
     const noToken = await http(method, path, body);
     assert.equal(noToken.status, 401, method + ' ' + path);
@@ -188,6 +190,27 @@ test('/api/action forwards the SANITIZED payload, not the raw body', async () =>
   assert.equal(forwarded.hadracha.completedDate, undefined);
   assert.equal(forwarded.hadracha.salary, undefined);
   assert.equal(forwarded.extraTopLevel, undefined);
+});
+
+test('/api/action baselineBatch: forwards the SANITIZED batch in one upstream call', async () => {
+  const calls = [];
+  stubs['https://apps-script.invalid'] = async (url, init) => {
+    calls.push(JSON.parse(init.body));
+    return jsonResponse({ _status: 200, ok: true, count: 2 });
+  };
+  const resp = await http('POST', '/api/action', {
+    action: 'baselineBatch',
+    completedDate: '2026-08-24',
+    items: [
+      { type: 'individual', guideName: 'עדי', house: 'hq', salary: 9999 },
+      { type: 'group', cluster: 'kesaria', attendance: ['דנה לוי'] },
+    ],
+  }, token);
+  assert.equal(resp.status, 200);
+  assert.equal(calls.length, 1); // the whole list in ONE backend action
+  assert.equal(calls[0].action, 'baselineBatch');
+  assert.equal(calls[0].items.length, 2);
+  assert.equal(calls[0].items[0].salary, undefined);
 });
 
 test('unknown /api path is a JSON 404', async () => {

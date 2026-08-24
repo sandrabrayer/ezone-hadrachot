@@ -180,6 +180,72 @@ test('addHadrachotBatch: caps the batch size', () => {
   rejects({ action: 'addHadrachotBatch', items }, 400);
 });
 
+test('baselineBatch: one action for the whole list, every item validated', () => {
+  const out = validateAction({
+    action: 'baselineBatch',
+    completedDate: '2026-08-24',
+    items: [
+      { type: 'individual', guideName: '  עדי   ברק ', house: 'hq' },
+      { type: 'refresher', guideName: 'דנה לוי', house: 'ofroni' },
+      { type: 'group', cluster: 'kesaria', attendance: ['דנה לוי', 'יואב כהן', 'דנה לוי'] },
+    ],
+  });
+  assert.equal(out.completedDate, '2026-08-24');
+  assert.equal(out.items.length, 3);
+  assert.equal(out.items[0].guideName, 'עדי ברק'); // normalized
+  assert.deepEqual(out.items[2].attendance, ['דנה לוי', 'יואב כהן']); // deduped
+  assert.equal(out.items[2].guideName, ''); // a group row carries no single person
+  assert.equal(out.items[2].house, '');
+});
+
+test('baselineBatch: rejects a missing or malformed date, empty items, and bad shapes', () => {
+  const item = { type: 'individual', guideName: 'עדי', house: 'hq' };
+  rejects({ action: 'baselineBatch', items: [item] }, 400); // no date
+  rejects({ action: 'baselineBatch', completedDate: 'today', items: [item] }, 400);
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24', items: [] }, 400);
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24' }, 400);
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24',
+    items: [{ type: 'party', guideName: 'עדי', house: 'hq' }] }, 400);
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24',
+    items: [{ type: 'individual', guideName: '', house: 'hq' }] }, 400);
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24',
+    items: [{ type: 'individual', guideName: 'עדי', house: 'narnia' }] }, 400);
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24',
+    items: [{ type: 'group', cluster: 'narnia', attendance: ['עדי'] }] }, 400);
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24',
+    items: [{ type: 'group', cluster: 'kesaria', attendance: [] }] }, 400); // empty attendance
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24',
+    items: [{ type: 'group', cluster: 'kesaria' }] }, 400);
+});
+
+test('baselineBatch: rejects duplicates per track and caps the batch size', () => {
+  const item = { type: 'individual', guideName: 'עדי', house: 'hq' };
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24', items: [item, item] }, 400);
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24', items: [
+    { type: 'group', cluster: 'kesaria', attendance: ['א'] },
+    { type: 'group', cluster: 'kesaria', attendance: ['ב'] },
+  ] }, 400);
+  // …but individual + refresher for the same person are different tracks.
+  const out = validateAction({ action: 'baselineBatch', completedDate: '2026-08-24', items: [
+    item, { type: 'refresher', guideName: 'עדי', house: 'hq' },
+  ] });
+  assert.equal(out.items.length, 2);
+  const many = [];
+  for (let i = 0; i < 501; i++) many.push({ type: 'individual', guideName: 'איש ' + i, house: 'hq' });
+  rejects({ action: 'baselineBatch', completedDate: '2026-08-24', items: many }, 400);
+});
+
+test('baselineBatch: no financial or extra field survives sanitization', () => {
+  const out = validateAction({
+    action: 'baselineBatch', completedDate: '2026-08-24',
+    items: [{ type: 'individual', guideName: 'עדי', house: 'hq', salary: 9999, status: 'planned' }],
+    extraTopLevel: 'nope',
+  });
+  assert.deepEqual(Object.keys(out).sort(), ['action', 'completedDate', 'items']);
+  assert.deepEqual(Object.keys(out.items[0]).sort(),
+    ['attendance', 'cluster', 'guideName', 'house', 'type']);
+});
+
 test('updateHadracha: forwards only the keys present in the payload', () => {
   const out = validateAction({
     action: 'updateHadracha', id: 'h1',

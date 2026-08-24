@@ -274,6 +274,86 @@ test('a guide with a live planned refresher is not scheduled again', () => {
   assert.equal(out.assignments.filter(a => a.type === 'refresher').length, 0);
 });
 
+// ---- the baseline reset — everyone marked done TODAY ----
+
+function baselineIndividual(name, house, type) {
+  return {
+    guideName: name, house, supervisorId: '', quarter: L.quarterOf(TODAY),
+    scheduledDate: TODAY, completedDate: TODAY, status: 'done',
+    type: type || 'individual', cluster: '', attendance: [],
+  };
+}
+
+test('baseline rows dated today clear overdue and push next-due a full cadence out', () => {
+  // Long-overdue people of every individual role, then the baseline lands.
+  const people = [
+    p('עדי', 'social_worker', 'hq', '2026-01-01'),
+    p('נעם', 'house_manager', 'ramot', '2026-01-01'),
+    p('גיל', 'coordinator', 'hq', '2026-01-01'),
+  ];
+  people.forEach(person => {
+    const before = L.personStatus(person, [], TODAY);
+    assert.equal(before.overdue, true, person.name + ' overdue before baseline');
+  });
+  const baseline = people.map(person => baselineIndividual(person.name, person.house));
+  people.forEach(person => {
+    const st = L.personStatus(person, baseline, TODAY);
+    assert.equal(st.overdue, false, person.name + ' clean after baseline');
+    assert.equal(st.lastDone, TODAY);
+    assert.equal(st.nextDue, L.addDays(TODAY, st.cadenceDays));
+  });
+});
+
+test('the scheduler picks up baseline dates — next sessions land a cadence after today', () => {
+  const sessions = [
+    baselineIndividual('עדי', 'hq'),
+    baselineIndividual('נעם', 'ramot'),
+  ];
+  const out = run(
+    [p('עדי', 'social_worker', 'hq', '2026-01-01'), p('נעם', 'house_manager', 'ramot', '2026-01-01')],
+    [sup('s1', 'אורית', ['hq', 'ramot'], 100)], sessions);
+  const byName = {};
+  out.assignments.forEach(a => { byName[a.guideName] = a; });
+  assert.equal(byName['עדי'].scheduledDate, '2026-09-02'); // today + 14
+  assert.equal(byName['נעם'].scheduledDate, '2026-08-26'); // today + 7
+  assert.equal(byName['עדי'].deadline, ''); // no longer never-supervised
+});
+
+test('a baseline GROUP row with attendance resets the whole cluster to today + 14', () => {
+  const baselineGroup = {
+    guideName: '', house: '', supervisorId: '', quarter: L.quarterOf(TODAY),
+    scheduledDate: TODAY, completedDate: TODAY, status: 'done',
+    type: 'group', cluster: 'kesaria', attendance: ['א', 'ב'],
+  };
+  const people = [p('א', 'guide', 'ofroni', '2026-01-01'), p('ב', 'guide', 'rehab', '2026-01-01')];
+  people.forEach(person => {
+    const st = L.personStatus(person, [baselineGroup], TODAY);
+    assert.equal(st.overdue, false, person.name);
+    assert.equal(st.nextDue, '2026-09-02');
+  });
+  const out = run(people, [sup('s1', 'אורית', ['ofroni', 'rehab'], 100)], [baselineGroup]);
+  const g = out.assignments.find(a => a.type === 'group');
+  assert.equal(g.scheduledDate, '2026-09-02'); // today + 14, not today
+});
+
+test('a baseline refresher row resets the refresher track to today + 3 months', () => {
+  const sessions = [
+    baselineIndividual('א', 'ofroni', 'refresher'),
+    { guideName: '', house: '', supervisorId: '', quarter: L.quarterOf(TODAY),
+      scheduledDate: TODAY, completedDate: TODAY, status: 'done',
+      type: 'group', cluster: 'kesaria', attendance: ['א'] },
+  ];
+  const st = L.personStatus(p('א', 'guide', 'ofroni', '2026-01-01'), sessions, TODAY);
+  assert.equal(st.refresherOverdue, false);
+  assert.equal(st.nextRefresherDue, '2026-11-19'); // today + 3 months
+  // Far beyond the 14-day horizon — the scheduler creates no refresher now.
+  const olga = sup('s9', 'אולגה', ['ofroni'], 100,
+    { deliversGroup: false, deliversIndividual: false, deliversRefresher: true, roles: ['guide'] });
+  const out = run([p('א', 'guide', 'ofroni', '2026-01-01')],
+    [sup('s1', 'אורית', ['ofroni'], 100), olga], sessions);
+  assert.equal(out.assignments.filter(a => a.type === 'refresher').length, 0);
+});
+
 // ---- supervisor helpers ----
 
 test('supervisorCovers accepts both array and comma-string houses', () => {
