@@ -1,5 +1,16 @@
 # Changelog — E-ZONE Hadrachot
 
+## 1.1.6 — 2026-10-22 — CLAUDE.md repo footer rule
+
+Docs/tooling only, no app change.
+
+- New `CLAUDE.md` with a single rule: every Claude reply to Sandra ends
+  with a footer line `📁 Repo: sandrabrayer/ezone-hadrachot · Branch:
+  <current branch>` (marked `(not pushed)` when the branch is not on
+  GitHub yet), since the Claude app/web does not show the terminal
+  status line.
+- New `tests/claude-md.test.js` asserts the rule stays in `CLAUDE.md`.
+
 ## 1.1.5 — 2026-08-24 — visible feedback for every action
 
 Frontend only: every action now shows its state — pressed, in flight,
